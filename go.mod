@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	gioui.org v0.10.3
+	github.com/BurntSushi/toml v1.6.0
 	github.com/Mi7teR/poe-lib v0.0.0-20261122224243-b68b37c5197d
 	golang.org/x/sys v0.50.0
 )

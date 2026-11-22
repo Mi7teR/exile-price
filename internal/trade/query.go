@@ -11,17 +11,23 @@ import (
 
 type Query struct {
 	Query struct {
-		Status  Option        `json:"status"`
-		Name    string        `json:"name,omitempty"`
-		Type    string        `json:"type,omitempty"`
-		Stats   []StatGroup   `json:"stats"`
-		Filters *QueryFilters `json:"filters,omitempty"`
+		Status  Option                 `json:"status"`
+		Name    string                 `json:"name,omitempty"`
+		Type    any                    `json:"type,omitempty"` // a base name, or Discriminated
+		Stats   []StatGroup            `json:"stats"`
+		Filters map[string]FilterGroup `json:"filters,omitempty"`
 	} `json:"query"`
 	Sort map[string]string `json:"sort"`
 }
 
 type Option struct {
 	Option string `json:"option"`
+}
+
+// Discriminated picks one of several bases sharing a name, e.g. {"Map", "map"}.
+type Discriminated struct {
+	Option        string `json:"option"`
+	Discriminator string `json:"discriminator"`
 }
 
 type StatGroup struct {
@@ -40,10 +46,9 @@ type MinMax struct {
 	Max *float64 `json:"max,omitempty"`
 }
 
-type QueryFilters struct {
-	TypeFilters *struct {
-		Filters map[string]Option `json:"filters"`
-	} `json:"type_filters,omitempty"`
+// FilterGroup is one of the trade site's filter groups: type_filters, map_filters, ...
+type FilterGroup struct {
+	Filters map[string]any `json:"filters"`
 }
 
 // NewQuery is an online-only query sorted by price ascending.
@@ -55,18 +60,22 @@ func NewQuery() Query {
 	return q
 }
 
-// SetTypeFilter sets a type_filters option such as category or rarity.
-func (q *Query) SetTypeFilter(key, option string) {
+// SetFilter sets one filter, e.g. ("type_filters", "category", Option{"armour.boots"})
+// or ("map_filters", "map_tier", Range(16, 16)).
+func (q *Query) SetFilter(group, key string, value any) {
 	if q.Query.Filters == nil {
-		q.Query.Filters = &QueryFilters{}
+		q.Query.Filters = map[string]FilterGroup{}
 	}
-	if q.Query.Filters.TypeFilters == nil {
-		q.Query.Filters.TypeFilters = &struct {
-			Filters map[string]Option `json:"filters"`
-		}{Filters: map[string]Option{}}
+	g, ok := q.Query.Filters[group]
+	if !ok {
+		g = FilterGroup{Filters: map[string]any{}}
+		q.Query.Filters[group] = g
 	}
-	q.Query.Filters.TypeFilters.Filters[key] = Option{option}
+	g.Filters[key] = value
 }
+
+// Range is a min/max filter value.
+func Range(min, max float64) MinMax { return MinMax{Min: &min, Max: &max} }
 
 // Stats maps mod text to trade stat ids, built from /api/trade/data/stats.
 type Stats struct {

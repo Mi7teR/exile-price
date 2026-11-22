@@ -20,11 +20,12 @@ type Dropped struct {
 }
 
 type Config struct {
-	CheapRatio float64       // a lot under CheapRatio × reference is suspect
-	StaleAge   time.Duration // ... and dropped when listed longer than this
+	CheapRatio   float64       // a lot under CheapRatio × reference is suspect
+	StaleAge     time.Duration // ... and dropped when listed longer than this
+	MinReference float64       // below this reference (chaos) the cheap rule is off: cheap items are real
 }
 
-var Default = Config{CheapRatio: 0.5, StaleAge: 24 * time.Hour}
+var Default = Config{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReference: 10}
 
 type Result struct {
 	Kept      []Lot
@@ -40,6 +41,7 @@ const (
 
 // Clean dedupes by account+signature, then drops lots that are both cheap
 // against the median and old: a real cheap item would have been bought.
+// In a cheap market (median under MinReference) nothing is dropped as a fixer.
 func Clean(lots []Lot, cfg Config, now time.Time) Result {
 	var r Result
 	seen := map[string]bool{}
@@ -55,7 +57,7 @@ func Clean(lots []Lot, cfg Config, now time.Time) Result {
 	}
 	r.Reference = quantile(prices(uniq), 0.5)
 	for _, l := range uniq {
-		if l.Chaos < r.Reference*cfg.CheapRatio && now.Sub(l.Indexed) > cfg.StaleAge {
+		if r.Reference >= cfg.MinReference && l.Chaos < r.Reference*cfg.CheapRatio && now.Sub(l.Indexed) > cfg.StaleAge {
 			r.Dropped = append(r.Dropped, Dropped{l, ReasonCheapOld})
 			continue
 		}

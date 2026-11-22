@@ -1,0 +1,67 @@
+package pricer
+
+import (
+	"fmt"
+
+	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
+)
+
+// Line is the one-line answer the overlay shows, e.g.
+// "~6–9 div · 14 лотов, 3 фиксера" or "~12c · poe.ninja".
+func (r *Result) Line(divine float64) string {
+	if r.Source == "poe.ninja" {
+		return "~" + Money(r.Mid, divine) + " · poe.ninja"
+	}
+	if len(r.Kept) == 0 {
+		return fmt.Sprintf("нет лотов · на сайте %d", r.Total)
+	}
+	n := len(r.Kept)
+	s := fmt.Sprintf("~%s · %d %s", MoneyRange(r.Low, r.Mid, divine), n, plural(n, "лот", "лота", "лотов"))
+	if n := r.Fixers(); n > 0 {
+		s += fmt.Sprintf(", %d %s", n, plural(n, "фиксер", "фиксера", "фиксеров"))
+	}
+	if len(r.Kept) < 5 {
+		s += " · мало данных"
+	}
+	return s
+}
+
+// Fixers counts lots dropped as price fixers (duplicates not included).
+func (r *Result) Fixers() int {
+	n := 0
+	for _, d := range r.Dropped {
+		if d.Reason == fixers.ReasonCheapOld {
+			n++
+		}
+	}
+	return n
+}
+
+// Money writes chaos as divines from one divine up, else as chaos.
+func Money(chaos, divine float64) string {
+	if divine > 0 && chaos >= divine {
+		return fmt.Sprintf("%.1f div", chaos/divine)
+	}
+	if chaos < 10 {
+		return fmt.Sprintf("%.1fc", chaos)
+	}
+	return fmt.Sprintf("%.0fc", chaos)
+}
+
+func MoneyRange(lo, hi, divine float64) string {
+	a, b := Money(lo, divine), Money(hi, divine)
+	if a == b {
+		return a
+	}
+	return a + "–" + b
+}
+
+func plural(n int, one, few, many string) string {
+	switch {
+	case n%10 == 1 && n%100 != 11:
+		return one
+	case n%10 >= 2 && n%10 <= 4 && (n%100 < 10 || n%100 >= 20):
+		return few
+	}
+	return many
+}

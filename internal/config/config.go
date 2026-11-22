@@ -1,0 +1,72 @@
+// Package config reads config.toml from the app folder (%APPDATA%\poe-pricecheck
+// on Windows) and writes the defaults there on first run.
+package config
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/BurntSushi/toml"
+)
+
+type Config struct {
+	League    string        `toml:"league"`     // empty = current temporary softcore league
+	HideAfter time.Duration `toml:"hide_after"` // the answer line hides after this
+	RollSlack float64       `toml:"roll_slack"` // rare filters: min = roll × (1 − roll_slack)
+	Fixers    Fixers        `toml:"fixers"`
+}
+
+type Fixers struct {
+	CheapRatio        float64       `toml:"cheap_ratio"`
+	StaleAge          time.Duration `toml:"stale_age"`
+	MinReferenceChaos float64       `toml:"min_reference_chaos"`
+}
+
+func Default() Config {
+	return Config{
+		HideAfter: 5 * time.Second,
+		RollSlack: 0.15,
+		Fixers:    Fixers{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReferenceChaos: 10},
+	}
+}
+
+const header = `# poe-pricecheck settings. Delete a line to get its default back.
+# league = ""  → current temporary softcore league; set e.g. "Hardcore Covens" to override.
+`
+
+// Dir is the app folder; it is created if missing.
+func Dir() (string, error) {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "poe-pricecheck")
+	return dir, os.MkdirAll(dir, 0o755)
+}
+
+// Load reads dir/config.toml over the defaults, writing the file when absent.
+func Load(dir string) (Config, error) {
+	cfg := Default()
+	path := filepath.Join(dir, "config.toml")
+	b, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		var buf bytes.Buffer
+		buf.WriteString(header)
+		if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+			return cfg, err
+		}
+		return cfg, os.WriteFile(path, buf.Bytes(), 0o644)
+	}
+	if err != nil {
+		return cfg, err
+	}
+	if _, err := toml.Decode(string(b), &cfg); err != nil {
+		return Default(), fmt.Errorf("%s: %w", path, err)
+	}
+	return cfg, nil
+}

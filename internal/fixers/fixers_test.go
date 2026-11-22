@@ -43,3 +43,14 @@ func TestCleanEmpty(t *testing.T) {
 		t.Errorf("got %+v", r)
 	}
 }
+
+func TestCleanCheapMarketKeepsCheapLots(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	old := now.Add(-72 * time.Hour)
+	// spike, 2026-11-23: four 1c lots were dropped at a 4c median
+	lots := []Lot{{"a", "1", 1, old}, {"b", "2", 1, old}, {"c", "3", 4, old}, {"d", "4", 5, old}, {"e", "5", 9, old}}
+	r := Clean(lots, Default, now)
+	if len(r.Dropped) != 0 {
+		t.Errorf("dropped %+v in a 4c market", r.Dropped)
+	}
+}

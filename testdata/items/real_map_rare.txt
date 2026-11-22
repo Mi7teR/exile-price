@@ -1,0 +1,14 @@
+Item Class: Maps
+Rarity: Rare
+Map (Tier 16)
+--------
+Item Level: 83
+--------
+Monster Level: 83
+--------
+Area is influenced by The Elder
+Map is occupied by The Eradicator
+--------
+Unidentified
+--------
+Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. 

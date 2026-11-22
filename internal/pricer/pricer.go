@@ -1,5 +1,5 @@
 // Package pricer routes an item to poe.ninja or the trade site and builds
-// the one-line answer.
+// the answer line.
 package pricer
 
 import (
@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Mi7teR/poe-lib/itemtext"
@@ -19,7 +21,6 @@ import (
 
 type Pricer struct {
 	League     string
-	Ninja      *ninja.Index
 	Trade      *trade.Client
 	Stats      *trade.Stats
 	Currencies map[string]string // trade currency id → full name, from /data/static
@@ -27,12 +28,23 @@ type Pricer struct {
 	Fixers     fixers.Config
 	RollSlack  float64 // filter min = roll × (1 − RollSlack)
 	Now        func() time.Time
+
+	ninja atomic.Pointer[ninja.Index]
+}
+
+func (p *Pricer) Ninja() *ninja.Index       { return p.ninja.Load() }
+func (p *Pricer) SetNinja(idx *ninja.Index) { p.ninja.Store(idx) }
+
+// Divine is the chaos value of a Divine Orb, 0 when unknown.
+func (p *Pricer) Divine() float64 {
+	d, _ := p.Ninja().Chaos("Divine Orb")
+	return d
 }
 
 type Result struct {
-	Source   string // "poe.ninja" or "trade"
-	Chaos    float64
-	Low, Mid float64 // trade: p25, p50 of kept lots, chaos
+	Item     string  // what was priced, for the log
+	Source   string  // "poe.ninja" or "trade"
+	Low, Mid float64 // chaos; equal for poe.ninja
 	Total    int     // trade: matches on the site
 	Kept     []fixers.Lot
 	Dropped  []fixers.Dropped
@@ -48,50 +60,94 @@ type Timing struct {
 
 var ErrNotItem = errors.New("pricer: text is not a PoE item")
 
+// Unsupported says the item kind is not priced in this version.
+type Unsupported struct{ What string }
+
+func (e *Unsupported) Error() string { return e.What + " не оценивается в v0.1" }
+
 // Price prices one item text (Ctrl+C or Ctrl+Alt+C).
 func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 	h, err := readHeader(text)
 	if err != nil {
 		return nil, err
 	}
-	switch h.rarity {
-	case "Currency", "Divination Card":
-		return p.fromNinja(h.name)
-	case "Gem":
-		return p.fromNinja(h.name, gemVariant(text))
+	switch {
+	case h.rarity == "Currency" || h.rarity == "Divination Card":
+		l, ok := p.Ninja().Best(h.name)
+		return p.fromNinja(h.name, l, ok)
+	case h.rarity == "Gem":
+		level, quality, corrupted := gemProps(text)
+		l, ok := p.Ninja().Gem(h.name, level, quality, corrupted)
+		return p.fromNinja(h.name, l, ok)
+	case h.class == "Maps":
+		return p.mapItem(ctx, h)
+	case h.rarity == "Normal" || h.rarity == "Magic":
+		return nil, &Unsupported{strings.ToLower(h.rarity) + " " + h.class}
 	}
+
 	t0 := time.Now()
 	it, err := p.Parser.Parse(text)
 	if err != nil {
 		return nil, err
 	}
-	parsed := time.Since(t0)
+	parsed := Timing{"parse", time.Since(t0)}
 	var r *Result
 	switch it.Rarity {
 	case itemtext.Unique:
-		r, err = p.fromNinja(it.Name)
+		l, ok := p.Ninja().Unique(it.Name, h.base, links(it.Sockets))
+		r, err = p.fromNinja(it.Name, l, ok)
 	case itemtext.Rare:
 		r, err = p.rare(ctx, it)
 	default:
-		return nil, fmt.Errorf("pricer: %s %s is not priced in the spike", strings.ToLower(string(it.Rarity)), it.ItemClass)
+		return nil, &Unsupported{strings.ToLower(string(it.Rarity)) + " " + it.ItemClass}
 	}
 	if r != nil {
-		r.Timings = append([]Timing{{"parse", parsed}}, r.Timings...)
+		r.Timings = append([]Timing{parsed}, r.Timings...)
 	}
 	return r, err
 }
 
-func (p *Pricer) fromNinja(name string, hints ...string) (*Result, error) {
-	l, ok := p.Ninja.Best(name, hints...)
+func (p *Pricer) fromNinja(name string, l ninja.Line, ok bool) (*Result, error) {
 	if !ok {
-		return nil, fmt.Errorf("pricer: %q not on poe.ninja", name)
+		return nil, fmt.Errorf("%s: нет на poe.ninja", name)
 	}
-	r := &Result{Source: "poe.ninja", Chaos: l.Chaos, Mid: l.Chaos, Low: l.Chaos}
+	r := &Result{Item: name, Source: "poe.ninja", Low: l.Chaos, Mid: l.Chaos}
 	if l.Variant != "" {
-		r.Note = "вариант: " + l.Variant
+		r.Note = l.Variant
 	}
 	return r, nil
 }
+
+// mapItem: unique and special maps come from poe.ninja by name; regular maps
+// read "Map (Tier 16)" (one base for every tier) and are priced on the trade
+// site by tier and rarity.
+func (p *Pricer) mapItem(ctx context.Context, h header) (*Result, error) {
+	if h.rarity == "Unique" {
+		l, ok := p.Ninja().Best(h.name)
+		return p.fromNinja(h.name, l, ok)
+	}
+	tier := 0
+	for _, line := range []string{h.name, h.base} {
+		if m := mapTierRe.FindStringSubmatch(line); m != nil {
+			tier, _ = strconv.Atoi(m[1])
+		}
+	}
+	if tier == 0 { // a named map such as "Nightmare Map"
+		l, ok := p.Ninja().Best(h.name)
+		return p.fromNinja(h.name, l, ok)
+	}
+	q := trade.NewQuery()
+	q.Query.Type = trade.Discriminated{Option: "Map", Discriminator: "map"}
+	q.SetFilter("type_filters", "rarity", trade.Option{Option: strings.ToLower(h.rarity)})
+	q.SetFilter("map_filters", "map_tier", trade.Range(float64(tier), float64(tier)))
+	r, err := p.tradePrice(ctx, q, nil)
+	if r != nil {
+		r.Item = fmt.Sprintf("%s map, tier %d", strings.ToLower(h.rarity), tier)
+	}
+	return r, err
+}
+
+var mapTierRe = regexp.MustCompile(`\bMap \(Tier (\d+)\)`)
 
 var categories = map[string]string{
 	"Boots": "armour.boots", "Gloves": "armour.gloves", "Helmets": "armour.helmet",
@@ -102,33 +158,39 @@ var categories = map[string]string{
 
 const fetchLots = 2 * trade.FetchLimit
 
+// rare searches by explicit mods only: implicits come with the base and made
+// the spike's first search too strict.
 func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 	cat, ok := categories[it.ItemClass]
 	if !ok {
-		return nil, fmt.Errorf("pricer: rare %s is not priced in the spike", it.ItemClass)
+		return nil, &Unsupported{"рарка " + it.ItemClass}
 	}
 	var filters []trade.StatFilter
-	add := func(kind string, lines []itemtext.ModLine) {
-		for _, l := range lines {
-			m, ok := p.Stats.Resolve(kind, l.Text)
-			if !ok || m.Value == 0 {
-				continue
-			}
-			min := math.Floor(m.Value * (1 - p.RollSlack))
-			filters = append(filters, trade.StatFilter{ID: m.ID, Value: &trade.MinMax{Min: &min}})
+	for _, l := range it.ActiveExplicits() {
+		m, ok := p.Stats.Resolve("explicit", l.Text)
+		if !ok || m.Value == 0 {
+			continue
 		}
+		min := math.Floor(m.Value * (1 - p.RollSlack))
+		filters = append(filters, trade.StatFilter{ID: m.ID, Value: &trade.MinMax{Min: &min}})
 	}
-	add("implicit", it.ActiveImplicits())
-	add("explicit", it.ActiveExplicits())
 	if len(filters) == 0 {
-		return nil, errors.New("pricer: no mod matched a trade stat")
+		return nil, errors.New("ни один мод не сопоставлен с трейд-статом")
 	}
-
 	q := trade.NewQuery()
-	q.SetTypeFilter("category", cat)
-	q.SetTypeFilter("rarity", "nonunique")
+	q.SetFilter("type_filters", "category", trade.Option{Option: cat})
+	q.SetFilter("type_filters", "rarity", trade.Option{Option: "nonunique"})
 	q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: filters}}
+	r, err := p.tradePrice(ctx, q, filters)
+	if r != nil {
+		r.Item = it.Name + ", " + it.BaseName
+	}
+	return r, err
+}
 
+// tradePrice searches, relaxes once to "any n−1 of the filters" when fewer
+// than 5 lots match, fetches the first lots and cleans out fixers.
+func (p *Pricer) tradePrice(ctx context.Context, q trade.Query, filters []trade.StatFilter) (*Result, error) {
 	r := &Result{Source: "trade"}
 	t := time.Now()
 	sr, err := p.Trade.Search(ctx, p.League, q)
@@ -136,7 +198,7 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 		return nil, err
 	}
 	r.Timings = append(r.Timings, Timing{"search", time.Since(t)})
-	if sr.Total < 5 && len(filters) > 1 { // one retry: any n−1 of the mods
+	if sr.Total < 5 && len(filters) > 1 {
 		n := float64(len(filters) - 1)
 		q.Query.Stats = []trade.StatGroup{{Type: "count", Filters: filters, Value: &trade.MinMax{Min: &n}}}
 		t = time.Now()
@@ -144,10 +206,13 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 			return nil, err
 		}
 		r.Timings = append(r.Timings, Timing{"search (ослаблен)", time.Since(t)})
-		r.Note = fmt.Sprintf("фильтры ослаблены: любые %d из %d модов", len(filters)-1, len(filters))
+		r.Note = fmt.Sprintf("любые %d из %d модов", len(filters)-1, len(filters))
 	}
 	r.Total = sr.Total
 	r.Link = trade.SearchURL(p.League, sr.ID)
+	if len(sr.Result) == 0 {
+		return r, nil
+	}
 
 	ids := sr.Result[:min(len(sr.Result), fetchLots)]
 	t = time.Now()
@@ -171,7 +236,7 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 		})
 	}
 	cr := fixers.Clean(lots, p.Fixers, p.Now())
-	r.Kept, r.Dropped, r.Low, r.Mid, r.Chaos = cr.Kept, cr.Dropped, cr.Low, cr.Mid, cr.Mid
+	r.Kept, r.Dropped, r.Low, r.Mid = cr.Kept, cr.Dropped, cr.Low, cr.Mid
 	return r, nil
 }
 
@@ -214,52 +279,72 @@ func (p *Pricer) toChaos(l trade.Listing) (float64, bool) {
 	if !ok {
 		return 0, false
 	}
-	rate, ok := p.Ninja.Chaos(name)
+	rate, ok := p.Ninja().Chaos(name)
 	if !ok {
 		return 0, false
 	}
 	return l.Price.Amount * rate, true
 }
 
-type header struct{ class, rarity, name string }
+func signature(fi trade.FetchItem) string {
+	parts := []string{fi.Item.Name, fi.Item.TypeLine}
+	for _, m := range fi.Item.ExplicitMods {
+		parts = append(parts, m.Description)
+	}
+	return strings.Join(parts, "|")
+}
 
+// links is the size of the largest linked socket group.
+func links(sockets []itemtext.Socket) int {
+	n := map[int]int{}
+	most := 0
+	for _, s := range sockets {
+		n[s.Group]++
+		most = max(most, n[s.Group])
+	}
+	return most
+}
+
+type header struct{ class, rarity, name, base string }
+
+// readHeader reads "Item Class", "Rarity", the name line and, when the next
+// line is not a separator, the base line.
 func readHeader(text string) (header, error) {
 	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	if len(lines) < 3 || !strings.HasPrefix(lines[0], "Item Class: ") || !strings.HasPrefix(lines[1], "Rarity: ") {
 		return header{}, ErrNotItem
 	}
-	return header{
-		class:  strings.TrimPrefix(lines[0], "Item Class: "),
+	h := header{
+		class:  strings.TrimSpace(strings.TrimPrefix(lines[0], "Item Class: ")),
 		rarity: strings.TrimSpace(strings.TrimPrefix(lines[1], "Rarity: ")),
 		name:   strings.TrimSpace(lines[2]),
-	}, nil
+	}
+	if len(lines) > 3 && !strings.HasPrefix(lines[3], "--------") {
+		h.base = strings.TrimSpace(lines[3])
+	}
+	return h, nil
 }
 
-// gemVariant builds poe.ninja's gem qualifier: "level/quality" plus "c" when corrupted.
-func gemVariant(text string) string {
-	level, quality, corrupted := 0, 0, false
+// gemProps reads the gem's own level (the first "Level:" line, before
+// "Requirements"), quality and corruption.
+func gemProps(text string) (level, quality int, corrupted bool) {
 	for _, l := range strings.Split(text, "\n") {
 		l = strings.TrimSpace(l)
 		switch {
-		case strings.HasPrefix(l, "Level: ") && level == 0: // gem level comes before "Requirements: Level"
-			level, _ = strconv.Atoi(strings.Fields(strings.TrimPrefix(l, "Level: "))[0])
+		case strings.HasPrefix(l, "Level: ") && level == 0:
+			level, _ = strconv.Atoi(firstField(strings.TrimPrefix(l, "Level: ")))
 		case strings.HasPrefix(l, "Quality: +"):
-			quality, _ = strconv.Atoi(strings.TrimSuffix(strings.Fields(strings.TrimPrefix(l, "Quality: +"))[0], "%"))
+			quality, _ = strconv.Atoi(strings.TrimSuffix(firstField(strings.TrimPrefix(l, "Quality: +")), "%"))
 		case l == "Corrupted":
 			corrupted = true
 		}
 	}
-	v := fmt.Sprintf("%d/%d", level, quality)
-	if corrupted {
-		v += "c"
-	}
-	return v
+	return level, quality, corrupted
 }
 
-func signature(fi trade.FetchItem) string {
-	parts := []string{fi.Item.Name}
-	for _, m := range fi.Item.ExplicitMods {
-		parts = append(parts, m.Description)
+func firstField(s string) string {
+	if f := strings.Fields(s); len(f) > 0 {
+		return f[0]
 	}
-	return strings.Join(parts, "|")
+	return ""
 }

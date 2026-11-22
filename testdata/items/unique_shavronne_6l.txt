@@ -1,0 +1,23 @@
+Item Class: Body Armours
+Rarity: Unique
+Shavronne's Wrappings
+Occultist's Vestment
+--------
+Energy Shield: 412 (augmented)
+--------
+Requirements:
+Level: 62
+Int: 180
+--------
+Sockets: B-B-B-B-R-G 
+--------
+Item Level: 80
+--------
++1 to Level of Socketed Gems (implicit)
+--------
+140% increased Energy Shield
+10% faster start of Energy Shield Recharge
++34% to Lightning Resistance
+Chaos Damage does not bypass Energy Shield
+--------
+Reverence for the divine, a fortress of the mind.

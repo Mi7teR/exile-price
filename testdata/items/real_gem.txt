@@ -1,0 +1,25 @@
+Item Class: Skill Gems
+Rarity: Gem
+Arc
+--------
+Spell, Chaining, Lightning
+Level: 21 (Max)
+Cost: 30 Mana
+Cast Time: 0.60 sec
+Critical Strike Chance: 6.00%
+Effectiveness of Added Damage: 120%
+Quality: +20% (augmented)
+--------
+Requirements:
+Level: 72
+Int: 159
+--------
+An arc of lightning reaches from the caster to a targeted enemy and chains to other enemies, but not immediately back. Each time the arc chains, it will also chain a secondary arc to another enemy that the main arc has not already hit, which cannot chain further.
+--------
+Deals 219 to 1242 Lightning Damage
+Chains +9 Times
+15% more Damage with Hits and Ailments for each remaining Chain
+--------
+Place into an item socket to gain this skill. Right click to remove from a socket.
+--------
+Corrupted
