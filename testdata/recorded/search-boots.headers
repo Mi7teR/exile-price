@@ -3,7 +3,6 @@ date: Sun, 22 Nov 2026 23:29:55 GMT
 content-type: application/json
 server: cloudflare
 vary: accept-encoding
-set-cookie: POESESSID=11d047dfb54b1bd2560edec035ddc03e; path=/; domain=.pathofexile.com; secure; HttpOnly; SameSite=Lax
 access-control-expose-headers: X-Rate-Limit-Policy, X-Rate-Limit-Rules, X-Rate-Limit-Ip, X-Rate-Limit-Ip-State
 x-rate-limit-policy: trade-search-request-limit
 x-rate-limit-rules: Ip
