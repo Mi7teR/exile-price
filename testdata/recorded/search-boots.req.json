@@ -1,0 +1,1 @@
+{"query":{"status":{"option":"online"},"stats":[{"type":"and","filters":[{"id":"explicit.stat_2250533757","value":{"min":25}},{"id":"pseudo.pseudo_total_life","value":{"min":60}},{"id":"pseudo.pseudo_total_elemental_resistance","value":{"min":60}}]}],"filters":{"type_filters":{"filters":{"category":{"option":"armour.boots"},"rarity":{"option":"rare"}}}}},"sort":{"price":"asc"}}

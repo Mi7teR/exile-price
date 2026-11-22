@@ -1,0 +1,23 @@
+Item Class: Boots
+Rarity: Rare
+Miracle Spark
+Two-Toned Boots
+--------
+Armour: 120
+Energy Shield: 24
+--------
+Requirements:
+Level: 70
+Str: 62
+Int: 62
+--------
+Sockets: B-R-R-G 
+--------
+Item Level: 84
+--------
++12% to Fire and Lightning Resistances (implicit)
+--------
++68 to maximum Life
+30% increased Movement Speed
++38% to Cold Resistance
++41% to Lightning Resistance
