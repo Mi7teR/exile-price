@@ -32,7 +32,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.2"
+var version = "0.1.3"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -81,7 +81,7 @@ type overlay struct {
 	items   chan string // latest copied item text; a newer copy replaces an unpriced one
 
 	hwnd         uintptr
-	listener     *win.Listener
+	listener     atomic.Pointer[win.Listener]
 	pricer       atomic.Pointer[pricer.Pricer] // swapped when the settings change
 	settingsOpen atomic.Bool
 
@@ -117,7 +117,7 @@ var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 // quit takes the tray icon down and exits.
 func (a *overlay) quit() {
-	a.listener.RemoveTray()
+	a.listener.Load().RemoveTray()
 	os.Exit(0)
 }
 
@@ -134,13 +134,14 @@ func (a *overlay) events() error {
 			}
 			a.hwnd = e.HWND
 			// Gio's window thread waits for this loop until the event is
-			// handled, and these calls wait for that thread: run them aside.
-			go func() {
+			// handled, so calls that message the window must run on that
+			// thread: Run does that, before Gio activates the window.
+			a.win.Run(func() {
 				win.MakeOverlay(a.hwnd)
-				win.Hide(a.hwnd) // Gio activated it on create; from here on only our calls show it
-				slog.Info("window ready")
-				a.run()
-			}()
+				win.Hide(a.hwnd) // from here on only our calls show it
+			})
+			slog.Info("window ready")
+			go a.run()
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 			need := a.view.Layout(gtx)
@@ -173,7 +174,7 @@ func (a *overlay) run() {
 		slog.Error("listener", "err", err)
 		return
 	}
-	a.listener = l
+	a.listener.Store(l)
 	slog.Info("listening")
 	go a.watch()
 
@@ -275,8 +276,8 @@ func (a *overlay) show(text string, kind ui.Kind, d time.Duration) {
 	at := a.shownAt
 	a.mu.Unlock()
 	win.ShowAt(a.hwnd, at[0], at[1])
-	if a.listener != nil && wasHidden {
-		a.listener.GrabEscape(true)
+	if l := a.listener.Load(); l != nil && wasHidden {
+		l.GrabEscape(true)
 	}
 	if after, _ := win.Foreground(); after != before {
 		slog.Warn("FOCUS STOLEN", "was", title)
@@ -290,8 +291,8 @@ func (a *overlay) hide() {
 	a.mu.Unlock()
 	if shown {
 		win.Hide(a.hwnd)
-		if a.listener != nil {
-			a.listener.GrabEscape(false)
+		if l := a.listener.Load(); l != nil {
+			l.GrabEscape(false)
 		}
 	}
 }
