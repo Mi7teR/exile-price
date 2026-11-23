@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,7 +32,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.1"
+var version = "0.1.2"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -132,9 +133,14 @@ func (a *overlay) events() error {
 				continue
 			}
 			a.hwnd = e.HWND
-			win.MakeOverlay(a.hwnd)
-			win.Hide(a.hwnd) // Gio activated it on create; from here on only our calls show it
-			go a.run()
+			// Gio's window thread waits for this loop until the event is
+			// handled, and these calls wait for that thread: run them aside.
+			go func() {
+				win.MakeOverlay(a.hwnd)
+				win.Hide(a.hwnd) // Gio activated it on create; from here on only our calls show it
+				slog.Info("window ready")
+				a.run()
+			}()
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
 			need := a.view.Layout(gtx)
@@ -168,6 +174,7 @@ func (a *overlay) run() {
 		return
 	}
 	a.listener = l
+	slog.Info("listening")
 	go a.watch()
 
 	a.show("poe-pricecheck "+version+" · загрузка цен…", ui.Pending, time.Minute)
@@ -337,5 +344,6 @@ func setupLog(dir string) string {
 		return ""
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+	_ = debug.SetCrashOutput(f, debug.CrashOptions{}) // panics land in the log, not in a missing console
 	return path
 }
