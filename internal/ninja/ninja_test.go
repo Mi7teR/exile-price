@@ -44,3 +44,31 @@ func TestLookups(t *testing.T) {
 		t.Errorf("divine = %v %v", c, ok)
 	}
 }
+
+func TestBase(t *testing.T) {
+	idx := load(t)
+	cases := []struct {
+		name       string
+		ilvl       int
+		influences []string
+		want       float64
+	}{
+		{"Runic Gauntlets", 85, nil, 4.7},
+		{"Paladin Boots", 90, []string{"elder"}, 30},
+		{"Paladin Boots", 86, []string{"crusader", "elder"}, 8376}, // listed as "Elder/Crusader"
+	}
+	for _, c := range cases {
+		l, ok := idx.Base(c.name, c.ilvl, c.influences)
+		if !ok || l.Chaos != c.want {
+			t.Errorf("%s %d %v: got %+v %v, want %v", c.name, c.ilvl, c.influences, l, ok, c.want)
+		}
+	}
+	for _, miss := range []struct {
+		ilvl int
+		inf  []string
+	}{{81, nil}, {86, []string{"cleansing"}}} {
+		if l, ok := idx.Base("Runic Gauntlets", miss.ilvl, miss.inf); ok {
+			t.Errorf("ilvl %d %v: priced %+v", miss.ilvl, miss.inf, l)
+		}
+	}
+}

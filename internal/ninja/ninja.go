@@ -145,3 +145,52 @@ func (i *Index) Chaos(currencyName string) (float64, bool) {
 	}
 	return 0, false
 }
+
+// influenceNames maps item text influences to poe.ninja's base variant names.
+// The Searing Exarch and Eater of Worlds have no base prices there.
+var influenceNames = map[string]string{
+	"shaper": "Shaper", "elder": "Elder", "crusader": "Crusader",
+	"eyrie": "Redeemer", "basilisk": "Hunter", "adjudicator": "Warlord",
+}
+
+// Base prices a crafting base by item level (82–85, "86+") and influences,
+// e.g. "Paladin Boots" with variant "86+, Elder/Crusader". Bases below item
+// level 82 are not priced on poe.ninja.
+func (i *Index) Base(name string, ilvl int, influences []string) (Line, bool) {
+	if ilvl < 82 {
+		return Line{}, false
+	}
+	v := strconv.Itoa(ilvl)
+	if ilvl >= 86 {
+		v = "86+"
+	}
+	var inf []string
+	for _, s := range influences {
+		n, ok := influenceNames[s]
+		if !ok {
+			return Line{}, false
+		}
+		inf = append(inf, n)
+	}
+	want := []string{v}
+	switch len(inf) {
+	case 0:
+	case 1:
+		want = []string{v + ", " + inf[0]}
+	case 2: // the order on poe.ninja is not fixed
+		want = []string{v + ", " + inf[0] + "/" + inf[1], v + ", " + inf[1] + "/" + inf[0]}
+	default:
+		return Line{}, false
+	}
+	for _, l := range i.byName[name] {
+		if l.Type != "BaseType" {
+			continue
+		}
+		for _, w := range want {
+			if l.Variant == w {
+				return l, true
+			}
+		}
+	}
+	return Line{}, false
+}

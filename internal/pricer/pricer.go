@@ -46,6 +46,7 @@ type Result struct {
 	Item     string  // what was priced, for the log
 	Source   string  // "poe.ninja" or "trade"
 	Low, Mid float64 // chaos; equal for poe.ninja
+	Base     float64 // chaos, poe.ninja price of the bare base; 0 = unknown
 	Total    int     // trade: matches on the site
 	Kept     []fixers.Lot
 	Dropped  []fixers.Dropped
@@ -83,7 +84,7 @@ func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 	case h.class == "Maps":
 		return p.mapItem(ctx, h)
 	case h.rarity == "Normal" || h.rarity == "Magic":
-		return nil, &Unsupported{strings.ToLower(h.rarity) + " " + h.class}
+		return p.baseOnly(text, h)
 	}
 
 	t0 := time.Now()
@@ -185,8 +186,35 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 	r, err := p.tradePrice(ctx, q, filters)
 	if r != nil {
 		r.Item = it.Name + ", " + it.BaseName
+		if l, ok := p.basePrice(it); ok {
+			r.Base = l.Chaos
+		}
 	}
 	return r, err
+}
+
+// baseOnly prices a normal or magic item as its crafting base.
+func (p *Pricer) baseOnly(text string, h header) (*Result, error) {
+	unsupported := &Unsupported{strings.ToLower(h.rarity) + " " + h.class}
+	it, err := p.Parser.Parse(text)
+	if err != nil {
+		return nil, unsupported
+	}
+	l, ok := p.basePrice(it)
+	if !ok {
+		return nil, unsupported
+	}
+	return &Result{Item: fmt.Sprintf("%s, ilvl %d", it.BaseName, it.ItemLevel), Source: "poe.ninja",
+		Low: l.Chaos, Mid: l.Chaos, Base: l.Chaos, Note: l.Variant}, nil
+}
+
+// basePrice is the poe.ninja price of the item's base. Fractured,
+// synthesised, corrupted and mirrored bases are worth something else.
+func (p *Pricer) basePrice(it *itemtext.Item) (ninja.Line, bool) {
+	if it.BaseName == "" || it.Fractured || it.Synthesised || it.Corrupted || it.Mirrored {
+		return ninja.Line{}, false
+	}
+	return p.Ninja().Base(it.BaseName, it.ItemLevel, it.Influences)
 }
 
 // tradePrice searches, relaxes once to "any n−1 of the filters" when fewer

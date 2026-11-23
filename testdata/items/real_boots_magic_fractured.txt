@@ -1,0 +1,23 @@
+Item Class: Boots
+Rarity: Magic
+Zaffre Paladin Boots of the Phoenix
+--------
+Quality: +28% (augmented)
+Armour: 301 (augmented)
+Energy Shield: 60 (augmented)
+--------
+Requirements:
+Level: 84
+Str: 98
+Int: 98
+--------
+Sockets: W-R-B-B 
+--------
+Item Level: 85
+--------
+{ Fractured Prefix Modifier "Zaffre" (Tier: 1) — Mana }
++70(69-73) to maximum Mana
+{ Suffix Modifier "of the Phoenix" (Tier: 1) — Life }
+Regenerate 69.1(64.1-96) Life per second
+--------
+Fractured Item

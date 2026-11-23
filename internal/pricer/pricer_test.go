@@ -8,6 +8,7 @@ import (
 
 	"github.com/Mi7teR/poe-lib/gamedata"
 	"github.com/Mi7teR/poe-lib/itemtext"
+	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
 	"github.com/Mi7teR/poe-pricecheck/internal/ninja"
 )
 
@@ -100,6 +101,35 @@ func TestLine(t *testing.T) {
 	}
 	if got := plural(11, "фиксер", "фиксера", "фиксеров"); got != "фиксеров" {
 		t.Errorf("plural(11) = %q", got)
+	}
+}
+
+func TestPriceBase(t *testing.T) {
+	p := offline(t)
+	cases := []struct {
+		text, line string
+	}{
+		{"Item Class: Gloves\nRarity: Normal\nRunic Gauntlets\n--------\nItem Level: 85\n", "база ~4.7c · poe.ninja"},
+		{"Item Class: Boots\nRarity: Magic\nZaffre Paladin Boots of the Phoenix\n--------\nItem Level: 86\n--------\nElder Item\n", "база ~30c · poe.ninja"},
+	}
+	for _, c := range cases {
+		r, err := p.Price(context.Background(), c.text)
+		if err != nil {
+			t.Errorf("%q: %v", c.text, err)
+			continue
+		}
+		if got := r.Line(209.4); got != c.line {
+			t.Errorf("%q: line %q, want %q", c.text, got, c.line)
+		}
+	}
+	// a fractured base is worth its fractured mod, not the base price
+	var u *Unsupported
+	if _, err := p.Price(context.Background(), item(t, "real_boots_magic_fractured.txt")); !errors.As(err, &u) {
+		t.Errorf("fractured magic boots: %v", err)
+	}
+	r := &Result{Source: "trade", Low: 14, Mid: 15, Base: 4.7, Kept: make([]fixers.Lot, 7)}
+	if got := r.Line(209.4); got != "~14c–15c · 7 лотов · база ~4.7c" {
+		t.Errorf("rare line with base = %q", got)
 	}
 }
 

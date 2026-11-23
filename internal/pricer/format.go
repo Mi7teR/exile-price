@@ -10,10 +10,17 @@ import (
 // "~6–9 div · 14 лотов, 3 фиксера" or "~12c · poe.ninja".
 func (r *Result) Line(divine float64) string {
 	if r.Source == "poe.ninja" {
+		if r.Base > 0 {
+			return "база ~" + Money(r.Base, divine) + " · poe.ninja"
+		}
 		return "~" + Money(r.Mid, divine) + " · poe.ninja"
 	}
+	base := ""
+	if r.Base > 0 {
+		base = " · база ~" + Money(r.Base, divine)
+	}
 	if len(r.Kept) == 0 {
-		return fmt.Sprintf("нет лотов · на сайте %d", r.Total)
+		return fmt.Sprintf("нет лотов · на сайте %d", r.Total) + base
 	}
 	n := len(r.Kept)
 	s := fmt.Sprintf("~%s · %d %s", MoneyRange(r.Low, r.Mid, divine), n, plural(n, "лот", "лота", "лотов"))
@@ -23,7 +30,7 @@ func (r *Result) Line(divine float64) string {
 	if len(r.Kept) < 5 {
 		s += " · мало данных"
 	}
-	return s
+	return s + base
 }
 
 // Fixers counts lots dropped as price fixers (duplicates not included).
