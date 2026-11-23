@@ -14,6 +14,8 @@ var (
 	procShellNotifyIcon   = shell32.NewProc("Shell_NotifyIconW")
 	procShellExecute      = shell32.NewProc("ShellExecuteW")
 	procLoadIcon          = user32.NewProc("LoadIconW")
+	procLoadImage         = user32.NewProc("LoadImageW")
+	procGetSystemMetrics  = user32.NewProc("GetSystemMetrics")
 	procCreatePopupMenu   = user32.NewProc("CreatePopupMenu")
 	procAppendMenu        = user32.NewProc("AppendMenuW")
 	procTrackPopupMenu    = user32.NewProc("TrackPopupMenu")
@@ -73,7 +75,7 @@ func (l *Listener) addTray(hwnd uintptr) {
 	if l.ev.TrayTip == "" {
 		return
 	}
-	icon, _, _ := procLoadIcon.Call(0, idiApplication)
+	icon := appIcon()
 	nid := notifyIconData{Wnd: hwnd, ID: trayID, Flags: nifMessage | nifIcon | nifTip, CallbackMessage: wmTray, Icon: icon}
 	nid.Size = uint32(unsafe.Sizeof(nid))
 	tip, _ := windows.UTF16FromString(l.ev.TrayTip)
@@ -125,4 +127,22 @@ func OpenFile(path string) {
 	p, _ := windows.UTF16PtrFromString(path)
 	const swShowNormal = 1
 	procShellExecute.Call(0, uintptr(unsafe.Pointer(verb)), uintptr(unsafe.Pointer(p)), 0, 0, swShowNormal)
+}
+
+// appIcon is the exe's own icon (resource 1, the one Gio uses for its
+// windows) at the small icon size, or the stock application icon.
+func appIcon() uintptr {
+	const (
+		imageIcon              = 1
+		lrShared               = 0x8000
+		smCxSmIcon, smCySmIcon = 49, 50
+	)
+	mod, _, _ := procGetModuleHandle.Call(0)
+	cx, _, _ := procGetSystemMetrics.Call(smCxSmIcon)
+	cy, _, _ := procGetSystemMetrics.Call(smCySmIcon)
+	if h, _, _ := procLoadImage.Call(mod, 1, imageIcon, cx, cy, lrShared); h != 0 {
+		return h
+	}
+	h, _, _ := procLoadIcon.Call(0, idiApplication)
+	return h
 }

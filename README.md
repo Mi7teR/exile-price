@@ -34,3 +34,9 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-H windowsg
 ```
 
 `testdata/recorded/` holds real API responses from 2026-11-23 (league Covens); `testdata/items/real_*.txt` are real item texts taken from trade listings.
+
+The icon is `assets/icon.svg`, rendered to `assets/icon.png`. After changing it, rebuild the Windows resource:
+
+```bash
+cd cmd/pricecheck && go run github.com/tc-hib/go-winres@v0.3.3 make --arch amd64
+```
