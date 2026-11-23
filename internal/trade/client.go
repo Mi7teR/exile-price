@@ -108,7 +108,18 @@ func SearchURL(league, queryID string) string {
 
 func (c *Client) do(ctx context.Context, policy, method, u string, body []byte, out any) error {
 	if wait := c.waitFor(policy); wait > 0 {
-		return &RateLimitError{Policy: policy, Wait: wait}
+		// Wait out a short block if the caller's deadline allows it;
+		// otherwise fail now rather than sleep into a timeout.
+		if dl, ok := ctx.Deadline(); !ok || time.Until(dl) < wait {
+			return &RateLimitError{Policy: policy, Wait: wait}
+		}
+		t := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return ctx.Err()
+		case <-t.C:
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u, bytes.NewReader(body))
 	if err != nil {

@@ -29,10 +29,11 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/config"
 	"github.com/Mi7teR/poe-pricecheck/internal/platform/win"
 	"github.com/Mi7teR/poe-pricecheck/internal/pricer"
+	"github.com/Mi7teR/poe-pricecheck/internal/trade"
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.4"
+var version = "0.1.5"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -244,10 +245,14 @@ func (a *overlay) price(text string) {
 	r, err := p.Price(ctx, text)
 	took := time.Since(t0)
 	var u *pricer.Unsupported
+	var rl *trade.RateLimitError
 	switch {
 	case errors.As(err, &u):
 		a.show(u.Error(), ui.Info, hideAfter)
 		slog.Info("unsupported", "what", u.What, "text", text)
+	case errors.As(err, &rl):
+		a.show(fmt.Sprintf("лимит запросов трейда · повтори через %d с", int(rl.Wait.Seconds()+0.999)), ui.Error, hideAfter)
+		slog.Warn("rate limit", "policy", rl.Policy, "wait", rl.Wait, "took", took)
 	case err != nil:
 		a.show("ошибка: "+err.Error(), ui.Error, hideAfter+3*time.Second)
 		slog.Error("price", "err", err, "took", took, "text", text)
