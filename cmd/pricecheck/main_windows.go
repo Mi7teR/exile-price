@@ -9,7 +9,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"image"
 	"log/slog"
 	"math"
@@ -22,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+
 	"gioui.org/app"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -33,7 +34,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.7"
+var version = "0.1.8"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -42,6 +43,7 @@ const (
 )
 
 func main() {
+	i18n.Set(i18n.FromSystem())
 	win.SetDPIAware()
 	if first, _ := win.SingleInstance(mutexName); !first {
 		win.AskRunningToQuit(className)
@@ -175,13 +177,13 @@ func (a *overlay) run() {
 		TrayTip:   "poe-pricecheck " + version,
 		TrayClick: a.openSettings,
 		TrayMenu: []win.MenuItem{
-			{Label: "Настройки…", Do: a.openSettings},
-			{Label: "Открыть лог", Do: func() { win.OpenFile(a.logPath) }},
-			{Label: "Выход", Do: func() { slog.Info("stop: tray"); a.quit() }},
+			{Label: i18n.T("Settings…"), Do: a.openSettings},
+			{Label: i18n.T("Open log"), Do: func() { win.OpenFile(a.logPath) }},
+			{Label: i18n.T("Quit"), Do: func() { slog.Info("stop: tray"); a.quit() }},
 		},
 	})
 	if err != nil {
-		a.show("не удалось слушать буфер: "+err.Error(), ui.Error, 15*time.Second)
+		a.show(i18n.Tf("cannot listen to the clipboard: %s", err), ui.Error, 15*time.Second)
 		slog.Error("listener", "err", err)
 		return
 	}
@@ -189,15 +191,15 @@ func (a *overlay) run() {
 	slog.Info("listening")
 	go a.watch()
 
-	a.show("poe-pricecheck "+version+" · загрузка цен…", ui.Pending, time.Minute)
+	a.show(i18n.Tf("poe-pricecheck %s · loading prices…", version), ui.Pending, time.Minute)
 	for !a.load() {
-		a.show("нет связи с трейдом или poe.ninja, повтор через 30 с", ui.Error, 30*time.Second)
+		a.show(i18n.T("no connection to the trade site or poe.ninja, retrying in 30 s"), ui.Error, 30*time.Second)
 		time.Sleep(30 * time.Second)
 	}
 	p := a.pricer.Load()
-	hello := fmt.Sprintf("poe-pricecheck %s · лига %s · Ctrl+Alt+C на предмете · настройки в трее", version, p.League)
+	hello := i18n.Tf("poe-pricecheck %s · league %s · Ctrl+Alt+C on an item · settings in the tray", version, p.League)
 	if a.cfgErr != nil {
-		hello = "config.toml с ошибкой, взяты значения по умолчанию · лог: " + a.logPath
+		hello = i18n.Tf("config.toml has an error, using defaults · log: %s", a.logPath)
 	}
 	a.show(hello, ui.Info, 8*time.Second)
 
@@ -250,7 +252,7 @@ func (a *overlay) price(text string) {
 		slog.Info("price cached", "line", a.last.line)
 		return
 	}
-	a.show("оцениваю…", ui.Pending, 20*time.Second)
+	a.show(i18n.T("pricing…"), ui.Pending, 20*time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	t0 := time.Now()
@@ -263,10 +265,10 @@ func (a *overlay) price(text string) {
 		a.show(u.Error(), ui.Info, hideAfter)
 		slog.Info("unsupported", "what", u.What, "text", text)
 	case errors.As(err, &rl):
-		a.show(fmt.Sprintf("лимит запросов трейда · повтори через %d с", int(rl.Wait.Seconds()+0.999)), ui.Error, hideAfter)
+		a.show(i18n.Tf("trade request limit · try again in %d s", int(rl.Wait.Seconds()+0.999)), ui.Error, hideAfter)
 		slog.Warn("rate limit", "policy", rl.Policy, "wait", rl.Wait, "took", took)
 	case err != nil:
-		a.show("ошибка: "+err.Error(), ui.Error, hideAfter+3*time.Second)
+		a.show(i18n.Tf("error: %s", err), ui.Error, hideAfter+3*time.Second)
 		slog.Error("price", "err", err, "took", took, "text", text)
 	default:
 		line := r.Line(p.Divine())

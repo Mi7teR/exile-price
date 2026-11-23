@@ -1,0 +1,51 @@
+package i18n
+
+var ruNouns = map[string][3]string{
+	"listing": {"лот", "лота", "лотов"},
+	"fixer":   {"фиксер", "фиксера", "фиксеров"},
+}
+
+var ru = map[string]string{
+	// price line
+	"base ~%s · poe.ninja":         "база ~%s · poe.ninja",
+	" · base ~%s":                  " · база ~%s",
+	"no listings · %d on the site": "нет лотов · на сайте %d",
+	" · few listings":              " · мало данных",
+	"any %d of %d mods":            "любые %d из %d модов",
+
+	// pricer errors
+	"%s is not priced yet":        "%s пока не оценивается",
+	"%s: not on poe.ninja":        "%s: нет на poe.ninja",
+	"no mod matched a trade stat": "ни один мод не сопоставлен с трейд-статом",
+	"the trade league list has no temporary softcore league; set league in config.toml": "в списке трейд-лиг нет временной софткор-лиги; задайте league в config.toml",
+
+	// overlay
+	"poe-pricecheck %s · loading prices…":                                          "poe-pricecheck %s · загрузка цен…",
+	"no connection to the trade site or poe.ninja, retrying in 30 s":               "нет связи с трейдом или poe.ninja, повтор через 30 с",
+	"poe-pricecheck %s · league %s · Ctrl+Alt+C on an item · settings in the tray": "poe-pricecheck %s · лига %s · Ctrl+Alt+C на предмете · настройки в трее",
+	"config.toml has an error, using defaults · log: %s":                           "config.toml с ошибкой, взяты значения по умолчанию · лог: %s",
+	"cannot listen to the clipboard: %s":                                           "не удалось слушать буфер: %s",
+	"pricing…":                                                                     "оцениваю…",
+	"trade request limit · try again in %d s":                                      "лимит запросов трейда · повтори через %d с",
+	"error: %s":                            "ошибка: %s",
+	"Settings…":                            "Настройки…",
+	"Open log":                             "Открыть лог",
+	"Quit":                                 "Выход",
+	"settings open once prices are loaded": "настройки откроются после загрузки цен",
+	"poe-pricecheck — settings":            "poe-pricecheck — настройки",
+	"cannot save config.toml: %s":          "не удалось сохранить config.toml: %s",
+	"settings saved · loading prices…":     "настройки сохранены · загрузка цен…",
+	"prices did not load, the old ones stay; see the log": "цены не загрузились, остались прежние; подробности в логе",
+	"done · league %s": "готово · лига %s",
+
+	// settings form
+	"League": "Лига",
+	"Auto: the current temporary softcore league": "Авто: текущая временная софткор-лига",
+	" (now %s)": " (сейчас %s)",
+	"Optional: the trade site works without a login today. Where to get it: pathofexile.com → F12 → Application → Cookies → POESESSID. Stored in config.toml, never written to the log.": "Необязательно: трейд сейчас работает и без входа. Где взять: pathofexile.com → F12 → Application → Cookies → POESESSID. Хранится в config.toml и не пишется в лог.",
+	"empty — no login": "пусто — без входа",
+	"Show":             "Показать",
+	"Cancel":           "Отмена",
+	"Save":             "Сохранить",
+	"POESESSID is 32 characters 0–9 and a–f": "POESESSID — это 32 символа 0–9 и a–f",
+}

@@ -10,7 +10,8 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
    - currency, divination cards, gems, uniques: instantly, from poe.ninja;
    - rares and regular maps: in about a second, from the trade site, with price fixers removed.
 4. The line hides after 5 s, on Esc, or when the mouse moves away.
-5. The tray icon: left click or "Настройки…" opens the settings (league, POESESSID); the menu also has "Открыть лог" and "Выход". Running `poe-pricecheck.exe` again quits too.
+5. The tray icon: left click or "Settings…" opens the settings (league, POESESSID); the menu also has "Open log" and "Quit". Running `poe-pricecheck.exe` again quits too.
+6. The interface follows the Windows display language: Russian for Russian, Belarusian and Kazakh, English otherwise.
 
 **League:** "Авто" picks the first temporary softcore league in GGG's trade list; pick another one (Hardcore, Ruthless, Standard) in the settings. **POESESSID** is optional: the trade site answers without a login today. It is stored in `config.toml` and never written to the log.
 

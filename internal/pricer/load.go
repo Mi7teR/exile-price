@@ -3,6 +3,7 @@ package pricer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
 
 	"github.com/Mi7teR/poe-lib/gamedata"
 	"github.com/Mi7teR/poe-lib/itemtext"
@@ -54,7 +57,7 @@ func Load(ctx context.Context, o Options) (*Pricer, error) {
 	if league == "" {
 		league = AutoLeague(all)
 		if league == "" {
-			return nil, fmt.Errorf("в списке трейд-лиг нет временной софткор-лиги; задайте league в config.toml")
+			return nil, errors.New(i18n.T("the trade league list has no temporary softcore league; set league in config.toml"))
 		}
 	}
 

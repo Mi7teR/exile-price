@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+
 	"github.com/Mi7teR/poe-lib/itemtext"
 	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
 	"github.com/Mi7teR/poe-pricecheck/internal/ninja"
@@ -65,7 +67,7 @@ var ErrNotItem = errors.New("pricer: text is not a PoE item")
 // Unsupported says the item kind is not priced in this version.
 type Unsupported struct{ What string }
 
-func (e *Unsupported) Error() string { return e.What + " не оценивается в v0.1" }
+func (e *Unsupported) Error() string { return i18n.Tf("%s is not priced yet", e.What) }
 
 // Price prices one item text (Ctrl+C or Ctrl+Alt+C).
 func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
@@ -111,7 +113,7 @@ func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 
 func (p *Pricer) fromNinja(name string, l ninja.Line, ok bool) (*Result, error) {
 	if !ok {
-		return nil, fmt.Errorf("%s: нет на poe.ninja", name)
+		return nil, errors.New(i18n.Tf("%s: not on poe.ninja", name))
 	}
 	r := &Result{Item: name, Source: "poe.ninja", Low: l.Chaos, Mid: l.Chaos}
 	if l.Variant != "" {
@@ -165,7 +167,7 @@ const fetchLots = 2 * trade.FetchLimit
 func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 	cat, ok := categories[it.ItemClass]
 	if !ok {
-		return nil, &Unsupported{"рарка " + it.ItemClass}
+		return nil, &Unsupported{"rare " + it.ItemClass}
 	}
 	var filters []trade.StatFilter
 	for _, l := range it.ActiveExplicits() {
@@ -177,7 +179,7 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 		filters = append(filters, trade.StatFilter{ID: m.ID, Value: &trade.MinMax{Min: &min}})
 	}
 	if len(filters) == 0 {
-		return nil, errors.New("ни один мод не сопоставлен с трейд-статом")
+		return nil, errors.New(i18n.T("no mod matched a trade stat"))
 	}
 	q := trade.NewQuery()
 	q.SetFilter("type_filters", "category", trade.Option{Option: cat})
@@ -234,8 +236,8 @@ func (p *Pricer) tradePrice(ctx context.Context, q trade.Query, filters []trade.
 		if sr, err = p.Trade.Search(ctx, p.League, q); err != nil {
 			return nil, err
 		}
-		r.Timings = append(r.Timings, Timing{"search (ослаблен)", time.Since(t)})
-		r.Note = fmt.Sprintf("любые %d из %d модов", len(filters)-1, len(filters))
+		r.Timings = append(r.Timings, Timing{"search (relaxed)", time.Since(t)})
+		r.Note = i18n.Tf("any %d of %d mods", len(filters)-1, len(filters))
 	}
 	r.Total = sr.Total
 	r.Link = trade.SearchURL(p.League, sr.ID)

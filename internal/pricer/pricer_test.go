@@ -96,12 +96,6 @@ func TestLine(t *testing.T) {
 	if got := r.Line(209.4); got != "~2.0 div · poe.ninja" {
 		t.Errorf("ninja line = %q", got)
 	}
-	if got := plural(3, "фиксер", "фиксера", "фиксеров"); got != "фиксера" {
-		t.Errorf("plural(3) = %q", got)
-	}
-	if got := plural(11, "фиксер", "фиксера", "фиксеров"); got != "фиксеров" {
-		t.Errorf("plural(11) = %q", got)
-	}
 }
 
 func TestPriceBase(t *testing.T) {
@@ -109,8 +103,8 @@ func TestPriceBase(t *testing.T) {
 	cases := []struct {
 		text, line string
 	}{
-		{"Item Class: Gloves\nRarity: Normal\nRunic Gauntlets\n--------\nItem Level: 85\n", "база ~4.7c · poe.ninja"},
-		{"Item Class: Boots\nRarity: Magic\nZaffre Paladin Boots of the Phoenix\n--------\nItem Level: 86\n--------\nElder Item\n", "база ~30c · poe.ninja"},
+		{"Item Class: Gloves\nRarity: Normal\nRunic Gauntlets\n--------\nItem Level: 85\n", "base ~4.7c · poe.ninja"},
+		{"Item Class: Boots\nRarity: Magic\nZaffre Paladin Boots of the Phoenix\n--------\nItem Level: 86\n--------\nElder Item\n", "base ~30c · poe.ninja"},
 	}
 	for _, c := range cases {
 		r, err := p.Price(context.Background(), c.text)
@@ -128,7 +122,7 @@ func TestPriceBase(t *testing.T) {
 		t.Errorf("fractured magic boots: %v", err)
 	}
 	r := &Result{Source: "trade", Low: 14, Mid: 15, Base: 4.7, Kept: make([]fixers.Lot, 7)}
-	if got := r.Line(209.4); got != "~14c–15c · 7 лотов · база ~4.7c" {
+	if got := r.Line(209.4); got != "~14c–15c · 7 listings · base ~4.7c" {
 		t.Errorf("rare line with base = %q", got)
 	}
 }

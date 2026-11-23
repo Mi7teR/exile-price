@@ -3,6 +3,8 @@ package pricer
 import (
 	"fmt"
 
+	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+
 	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
 )
 
@@ -11,24 +13,24 @@ import (
 func (r *Result) Line(divine float64) string {
 	if r.Source == "poe.ninja" {
 		if r.Base > 0 {
-			return "база ~" + Money(r.Base, divine) + " · poe.ninja"
+			return i18n.Tf("base ~%s · poe.ninja", Money(r.Base, divine))
 		}
 		return "~" + Money(r.Mid, divine) + " · poe.ninja"
 	}
 	base := ""
 	if r.Base > 0 {
-		base = " · база ~" + Money(r.Base, divine)
+		base = i18n.Tf(" · base ~%s", Money(r.Base, divine))
 	}
 	if len(r.Kept) == 0 {
-		return fmt.Sprintf("нет лотов · на сайте %d", r.Total) + base
+		return i18n.Tf("no listings · %d on the site", r.Total) + base
 	}
 	n := len(r.Kept)
-	s := fmt.Sprintf("~%s · %d %s", MoneyRange(r.Low, r.Mid, divine), n, plural(n, "лот", "лота", "лотов"))
+	s := "~" + MoneyRange(r.Low, r.Mid, divine) + " · " + i18n.Count(n, "listing")
 	if n := r.Fixers(); n > 0 {
-		s += fmt.Sprintf(", %d %s", n, plural(n, "фиксер", "фиксера", "фиксеров"))
+		s += ", " + i18n.Count(n, "fixer")
 	}
 	if len(r.Kept) < 5 {
-		s += " · мало данных"
+		s += i18n.T(" · few listings")
 	}
 	return s + base
 }
@@ -61,14 +63,4 @@ func MoneyRange(lo, hi, divine float64) string {
 		return a
 	}
 	return a + "–" + b
-}
-
-func plural(n int, one, few, many string) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return one
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 10 || n%100 >= 20):
-		return few
-	}
-	return many
 }

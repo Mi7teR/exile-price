@@ -4,6 +4,8 @@ import (
 	"image/color"
 	"strings"
 
+	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+
 	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
@@ -72,7 +74,7 @@ func (s *Settings) Values() (league, poesessid string) {
 func (s *Settings) Problem() string {
 	_, sess := s.Values()
 	if sess != "" && !validSession(sess) {
-		return "POESESSID — это 32 символа 0–9 и a–f"
+		return i18n.T("POESESSID is 32 characters 0–9 and a–f")
 	}
 	return ""
 }
@@ -127,10 +129,10 @@ func (s *Settings) Layout(gtx layout.Context) Action {
 		l.Font.Weight = font.Bold
 		return l.Layout
 	}
-	rows := []layout.Widget{heading("Лига")}
-	autoLabel := "Авто: текущая временная софткор-лига"
+	rows := []layout.Widget{heading(i18n.T("League"))}
+	autoLabel := i18n.T("Auto: the current temporary softcore league")
 	if s.auto != "" {
-		autoLabel += " (сейчас " + s.auto + ")"
+		autoLabel += i18n.Tf(" (now %s)", s.auto)
 	}
 	rows = append(rows, material.RadioButton(th, &s.league, autoKey, autoLabel).Layout)
 	for _, lg := range s.leagues {
@@ -139,16 +141,16 @@ func (s *Settings) Layout(gtx layout.Context) Action {
 	rows = append(rows,
 		gap,
 		heading("POESESSID"),
-		small("Необязательно: трейд сейчас работает и без входа. Где взять: pathofexile.com → F12 → Application → Cookies → POESESSID. Хранится в config.toml и не пишется в лог.", muted),
+		small(i18n.T("Optional: the trade site works without a login today. Where to get it: pathofexile.com → F12 → Application → Cookies → POESESSID. Stored in config.toml, never written to the log."), muted),
 		layout.Spacer{Height: unit.Dp(6)}.Layout,
 		func(gtx layout.Context) layout.Dimensions {
-			e := material.Editor(th, &s.sess, "пусто — без входа")
+			e := material.Editor(th, &s.sess, i18n.T("empty — no login"))
 			e.Font.Typeface = "monospace"
 			return widget.Border{Color: muted, CornerRadius: unit.Dp(4), Width: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.UniformInset(unit.Dp(8)).Layout(gtx, e.Layout)
 			})
 		},
-		material.CheckBox(th, &s.show, "Показать").Layout,
+		material.CheckBox(th, &s.show, i18n.T("Show")).Layout,
 	)
 	if problem != "" {
 		rows = append(rows, small(problem, bad))
@@ -156,14 +158,14 @@ func (s *Settings) Layout(gtx layout.Context) Action {
 	rows = append(rows, gap, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Spacing: layout.SpaceStart}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				b := material.Button(th, &s.cancel, "Отмена")
+				b := material.Button(th, &s.cancel, i18n.T("Cancel"))
 				b.Background = color.NRGBA{R: 225, G: 225, B: 230, A: 255}
 				b.Color = color.NRGBA{R: 30, G: 30, B: 35, A: 255}
 				return b.Layout(gtx)
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				b := material.Button(th, &s.save, "Сохранить")
+				b := material.Button(th, &s.save, i18n.T("Save"))
 				b.Font.Weight = font.Bold
 				b.Background = color.NRGBA{R: 40, G: 90, B: 170, A: 255}
 				if problem != "" {
