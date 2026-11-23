@@ -5,6 +5,7 @@
 package win
 
 import (
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -109,4 +110,20 @@ func Foreground() (uintptr, string) {
 	buf := make([]uint16, 256)
 	n, _, _ := procGetWindowText.Call(h, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
 	return h, windows.UTF16ToString(buf[:n])
+}
+
+// GiveBackFocus waits up to a second for hwnd to become the foreground
+// window and, if it does, hands the foreground back to prev. do runs a
+// function on hwnd's thread.
+func GiveBackFocus(hwnd, prev uintptr, do func(func())) {
+	if prev == 0 || prev == hwnd {
+		return
+	}
+	for range 20 {
+		if h, _, _ := procGetForeground.Call(); h == hwnd {
+			do(func() { procSetForeground.Call(prev) })
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }

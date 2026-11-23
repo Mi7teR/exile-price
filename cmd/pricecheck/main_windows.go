@@ -32,7 +32,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.3"
+var version = "0.1.4"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -55,7 +55,8 @@ func main() {
 	cfg, cfgErr := config.Load(dir)
 	slog.Info("start", "version", version, "dir", dir, "config_error", cfgErr, "poesessid_set", cfg.POESESSID != "")
 
-	a := &overlay{view: ui.New(), cfg: cfg, cfgErr: cfgErr, logPath: logPath, dir: dir, items: make(chan string, 1)}
+	before, _ := win.Foreground() // usually Explorer, where the .exe was started
+	a := &overlay{before: before, view: ui.New(), cfg: cfg, cfgErr: cfgErr, logPath: logPath, dir: dir, items: make(chan string, 1)}
 	a.win = new(app.Window)
 	a.win.Option(
 		app.Title("poe-pricecheck"),
@@ -81,6 +82,7 @@ type overlay struct {
 	items   chan string // latest copied item text; a newer copy replaces an unpriced one
 
 	hwnd         uintptr
+	before       uintptr // foreground window at start, given back after Gio takes it
 	listener     atomic.Pointer[win.Listener]
 	pricer       atomic.Pointer[pricer.Pricer] // swapped when the settings change
 	settingsOpen atomic.Bool
@@ -141,6 +143,7 @@ func (a *overlay) events() error {
 				win.Hide(a.hwnd) // from here on only our calls show it
 			})
 			slog.Info("window ready")
+			go win.GiveBackFocus(a.hwnd, a.before, a.win.Run) // Gio activates the window right after this event
 			go a.run()
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
