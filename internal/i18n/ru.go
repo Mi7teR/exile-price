@@ -7,11 +7,13 @@ var ruNouns = map[string][3]string{
 
 var ru = map[string]string{
 	// price line
-	"base ~%s · poe.ninja":         "база ~%s · poe.ninja",
-	" · base ~%s":                  " · база ~%s",
-	"no listings · %d on the site": "нет лотов · на сайте %d",
-	" · rough estimate":            " · оценка грубая",
-	"any %d of %d mods":            "любые %d из %d модов",
+	"base ~%s · poe.ninja":              "база ~%s · poe.ninja",
+	" · base ~%s":                       " · база ~%s",
+	"no listings · %d on the site":      "нет лотов · на сайте %d",
+	" · rough estimate":                 " · оценка грубая",
+	"Open the last search (Ctrl+Alt+O)": "Открыть последний поиск (Ctrl+Alt+O)",
+	"no trade search yet":               "поиска на trade ещё не было",
+	"any %d of %d mods":                 "любые %d из %d модов",
 
 	// pricer errors
 	"%s is not priced yet":        "%s пока не оценивается",

@@ -34,7 +34,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.10"
+var version = "0.1.11"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -89,6 +89,8 @@ type overlay struct {
 	listener     atomic.Pointer[win.Listener]
 	pricer       atomic.Pointer[pricer.Pricer] // swapped when the settings change
 	settingsOpen atomic.Bool
+
+	link atomic.Pointer[string] // the last trade search, for Ctrl+Alt+O
 
 	last struct { // the last priced item; a repeat within a minute reuses it
 		p    *pricer.Pricer
@@ -173,10 +175,12 @@ func (a *overlay) run() {
 	l, err := win.Listen(className, win.Events{
 		Clipboard: a.onClipboard,
 		Escape:    a.hide,
+		Open:      a.openSearch,
 		Close:     func() { slog.Info("stop: asked by a second launch"); os.Exit(0) },
 		TrayTip:   "poe-pricecheck " + version,
 		TrayClick: a.openSettings,
 		TrayMenu: []win.MenuItem{
+			{Label: i18n.T("Open the last search (Ctrl+Alt+O)"), Do: a.openSearch},
 			{Label: i18n.T("Settings…"), Do: a.openSettings},
 			{Label: i18n.T("Open log"), Do: func() { win.OpenFile(a.logPath) }},
 			{Label: i18n.T("Quit"), Do: func() { slog.Info("stop: tray"); a.quit() }},
@@ -274,6 +278,9 @@ func (a *overlay) price(text string) {
 		line := r.Line(p.Divine())
 		a.show(line, ui.Price, hideAfter)
 		a.last.p, a.last.text, a.last.line, a.last.at = p, text, line, time.Now()
+		if r.Link != "" {
+			a.link.Store(&r.Link)
+		}
 		attrs := []any{"item", r.Item, "line", line, "source", r.Source, "took", took, "total", r.Total,
 			"kept", len(r.Kept), "dropped", len(r.Dropped), "link", r.Link}
 		for _, t := range r.Timings {
@@ -281,6 +288,18 @@ func (a *overlay) price(text string) {
 		}
 		slog.Info("price", append(attrs, "text", text)...)
 	}
+}
+
+// openSearch opens the last trade search in the browser, to see the
+// listings behind the line.
+func (a *overlay) openSearch() {
+	l := a.link.Load()
+	if l == nil {
+		a.show(i18n.T("no trade search yet"), ui.Info, 3*time.Second)
+		return
+	}
+	win.OpenFile(*l)
+	slog.Info("search opened")
 }
 
 // show puts text at the cursor for d without taking focus from the game.

@@ -23,9 +23,11 @@ type Config struct {
 	CheapRatio   float64       // a lot under CheapRatio × reference is suspect
 	StaleAge     time.Duration // ... and dropped when listed longer than this
 	MinReference float64       // below this reference (chaos) the cheap rule is off: cheap items are real
+	OldAge       time.Duration // lots listed longer are left out ...
+	MinFresh     int           // ... when at least this many fresher ones remain
 }
 
-var Default = Config{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReference: 10}
+var Default = Config{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReference: 10, OldAge: 7 * 24 * time.Hour, MinFresh: 5}
 
 type Result struct {
 	Kept      []Lot
@@ -37,11 +39,13 @@ type Result struct {
 const (
 	ReasonDuplicate = "повтор того же лота"
 	ReasonCheapOld  = "дешёвый и давно висит"
+	ReasonOld       = "висит больше недели"
 )
 
 // Clean dedupes by account+signature, then drops lots that are both cheap
 // against the median and old: a real cheap item would have been bought.
 // In a cheap market (median under MinReference) nothing is dropped as a fixer.
+// Lots older than OldAge go too while MinFresh fresher ones remain.
 func Clean(lots []Lot, cfg Config, now time.Time) Result {
 	var r Result
 	seen := map[string]bool{}
@@ -62,6 +66,25 @@ func Clean(lots []Lot, cfg Config, now time.Time) Result {
 			continue
 		}
 		r.Kept = append(r.Kept, l)
+	}
+	// an asking price nobody took for a week says little about today's
+	// price; the fresh lots are already on this page, no search more
+	fresh := 0
+	for _, l := range r.Kept {
+		if now.Sub(l.Indexed) <= cfg.OldAge {
+			fresh++
+		}
+	}
+	if cfg.MinFresh > 0 && fresh >= cfg.MinFresh && fresh < len(r.Kept) {
+		kept := r.Kept[:0:0]
+		for _, l := range r.Kept {
+			if now.Sub(l.Indexed) > cfg.OldAge {
+				r.Dropped = append(r.Dropped, Dropped{l, ReasonOld})
+				continue
+			}
+			kept = append(kept, l)
+		}
+		r.Kept = kept
 	}
 	p := prices(r.Kept)
 	r.Low, r.Mid = quantile(p, 0.25), quantile(p, 0.5)

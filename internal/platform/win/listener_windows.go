@@ -45,6 +45,10 @@ const (
 	vkEscape          = 0x1B
 	modNoRepeat       = 0x4000
 	hotkeyEsc         = 1
+	hotkeyOpen        = 2 // Ctrl+Alt+O: open the last trade search
+	modAlt            = 0x0001
+	modControl        = 0x0002
+	vkO               = 0x4F
 	dpiPerMonitorV2   = ^uintptr(3) // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
 )
 
@@ -60,6 +64,7 @@ func SetDPIAware() {
 type Events struct {
 	Clipboard func(text string) // clipboard text changed
 	Escape    func()            // Esc pressed while grabbed
+	Open      func()            // Ctrl+Alt+O pressed
 	Close     func()            // another instance asked this one to quit
 	TrayTip   string            // tray icon tooltip; empty = no tray icon
 	TrayClick func()            // left click on the tray icon
@@ -142,6 +147,9 @@ func (l *Listener) create(className string, ev Events) error {
 			if wp == hotkeyEsc && ev.Escape != nil {
 				ev.Escape()
 			}
+			if wp == hotkeyOpen && ev.Open != nil {
+				go ev.Open()
+			}
 			return 0
 		case wmEscape:
 			if wp == 1 {
@@ -184,6 +192,9 @@ func (l *Listener) create(className string, ev Events) error {
 		return fmt.Errorf("AddClipboardFormatListener: %w", err)
 	}
 	l.hwnd = hwnd
+	if ev.Open != nil { // taken by another program: the tray item still works
+		procRegisterHotKey.Call(hwnd, hotkeyOpen, modControl|modAlt|modNoRepeat, vkO)
+	}
 	l.addTray(hwnd)
 	return nil
 }

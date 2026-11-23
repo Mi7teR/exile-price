@@ -54,3 +54,19 @@ func TestCleanCheapMarketKeepsCheapLots(t *testing.T) {
 		t.Errorf("dropped %+v in a 4c market", r.Dropped)
 	}
 }
+
+func TestCleanDropsOldWhenFreshSuffice(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	week := now.Add(-8 * 24 * time.Hour)
+	day := now.Add(-24 * time.Hour)
+	lots := []Lot{{"a", "1", 1, week}, {"b", "2", 1, week}, {"c", "3", 2, day}, {"d", "4", 2, day}, {"e", "5", 3, day}, {"f", "6", 3, day}, {"g", "7", 4, day}}
+	r := Clean(lots, Default, now)
+	if len(r.Kept) != 5 || r.Mid != 3 {
+		t.Errorf("kept %d, mid %v; want the 5 fresh lots, mid 3", len(r.Kept), r.Mid)
+	}
+	// too few fresh lots: the old ones stay
+	r = Clean(lots[:4], Default, now)
+	if len(r.Kept) != 4 {
+		t.Errorf("kept %d of 4 with only 2 fresh", len(r.Kept))
+	}
+}

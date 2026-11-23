@@ -99,9 +99,10 @@ func Load(ctx context.Context, o Options) (*Pricer, error) {
 		Stats:      stats,
 		Currencies: cur,
 		Parser:     itemtext.New(gd),
-		Fixers:     fixers.Config{CheapRatio: c.Fixers.CheapRatio, StaleAge: c.Fixers.StaleAge, MinReference: c.Fixers.MinReferenceChaos},
-		RollSlack:  c.RollSlack,
-		Now:        time.Now,
+		Fixers: fixers.Config{CheapRatio: c.Fixers.CheapRatio, StaleAge: c.Fixers.StaleAge, MinReference: c.Fixers.MinReferenceChaos,
+			OldAge: fixers.Default.OldAge, MinFresh: fixers.Default.MinFresh},
+		RollSlack: c.RollSlack,
+		Now:       time.Now,
 	}
 	if err := p.loadNinja(ctx, o, 30*time.Minute); err != nil {
 		return nil, err

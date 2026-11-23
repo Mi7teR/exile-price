@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -101,7 +102,7 @@ func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 		l, ok := p.Ninja().Unique(it.Name, h.base, links(it.Sockets))
 		r, err = p.fromNinja(it.Name, l, ok)
 	case itemtext.Rare:
-		r, err = p.rare(ctx, it)
+		r, err = p.rare(ctx, it, text)
 	default:
 		return nil, &Unsupported{strings.ToLower(string(it.Rarity)) + " " + it.ItemClass}
 	}
@@ -158,25 +159,52 @@ var categories = map[string]string{
 	"Body Armours": "armour.chest", "Shields": "armour.shield", "Quivers": "armour.quiver",
 	"Rings": "accessory.ring", "Amulets": "accessory.amulet", "Belts": "accessory.belt",
 	"Jewels": "jewel",
+
+	"Bows": "weapon.bow", "Claws": "weapon.claw", "Daggers": "weapon.basedagger",
+	"Rune Daggers": "weapon.runedagger", "One Hand Axes": "weapon.oneaxe",
+	"One Hand Swords": "weapon.basesword", "Thrusting One Hand Swords": "weapon.rapier",
+	"One Hand Maces": "weapon.basemace", "Sceptres": "weapon.sceptre",
+	"Staves": "weapon.basestaff", "Warstaves": "weapon.warstaff", "Two Hand Axes": "weapon.twoaxe",
+	"Two Hand Maces": "weapon.twomace", "Two Hand Swords": "weapon.twosword", "Wands": "weapon.wand",
 }
 
 const fetchLots = 2 * trade.FetchLimit
 
 // rare searches by explicit mods only: implicits come with the base and made
 // the spike's first search too strict.
-func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
+func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Result, error) {
 	cat, ok := categories[it.ItemClass]
 	if !ok {
 		return nil, &Unsupported{"rare " + it.ItemClass}
 	}
-	filters := rareFilters(it.ActiveExplicits(), p.Stats, p.RollSlack)
-	if len(filters) == 0 {
-		return nil, errors.New(i18n.T("no mod matched a trade stat"))
+	weapon := strings.HasPrefix(cat, "weapon")
+	m := mods{
+		local:  weapon || strings.HasPrefix(cat, "armour.") && cat != "armour.quiver",
+		weapon: weapon,
+		tiers:  tiers(text),
 	}
+	filters := rareFilters(it.ActiveExplicits(), m, p.Stats, p.RollSlack)
 	q := trade.NewQuery()
 	q.SetFilter("type_filters", "category", trade.Option{Option: cat})
 	q.SetFilter("type_filters", "rarity", trade.Option{Option: "nonunique"})
+	dps := false
+	if weapon {
+		pdps, edps := weaponDPS(text)
+		for key, v := range map[string]float64{"pdps": pdps, "edps": edps} {
+			if v >= 1 {
+				min := math.Floor(v * (1 - p.RollSlack))
+				q.SetFilter("weapon_filters", key, trade.MinMax{Min: &min})
+				dps = true
+			}
+		}
+	}
+	if len(filters) == 0 && !dps {
+		return nil, errors.New(i18n.T("no mod matched a trade stat"))
+	}
 	q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: filters}}
+	if must := mustHave(it, p.Stats, p.RollSlack); len(must) > 0 {
+		q.Query.Stats = append(q.Query.Stats, trade.StatGroup{Type: "and", Filters: must})
+	}
 	r, err := p.tradePrice(ctx, q, filters)
 	if r != nil {
 		r.Item = it.Name + ", " + it.BaseName
@@ -223,7 +251,7 @@ func (p *Pricer) tradePrice(ctx context.Context, q trade.Query, filters []trade.
 	r.Timings = append(r.Timings, Timing{"search", time.Since(t)})
 	if sr.Total < 5 && len(filters) > 1 {
 		n := float64(len(filters) - 1)
-		q.Query.Stats = []trade.StatGroup{{Type: "count", Filters: filters, Value: &trade.MinMax{Min: &n}}}
+		q.Query.Stats[0] = trade.StatGroup{Type: "count", Filters: filters, Value: &trade.MinMax{Min: &n}}
 		t = time.Now()
 		if sr, err = p.Trade.Search(ctx, p.League, q); err != nil {
 			return nil, err
