@@ -49,6 +49,7 @@ type Result struct {
 	Source   string  // "poe.ninja" or "trade"
 	Low, Mid float64 // chaos; equal for poe.ninja
 	Base     float64 // chaos, poe.ninja price of the bare base; 0 = unknown
+	Avg      float64 // chaos, poe.ninja price of a unique priced on trade by its rolls
 	Total    int     // trade: matches on the site
 	Kept     []fixers.Lot
 	Dropped  []fixers.Dropped
@@ -97,11 +98,12 @@ func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 	}
 	parsed := Timing{"parse", time.Since(t0)}
 	var r *Result
-	switch it.Rarity {
-	case itemtext.Unique:
-		l, ok := p.Ninja().Unique(it.Name, h.base, links(it.Sockets))
-		r, err = p.fromNinja(it.Name, l, ok)
-	case itemtext.Rare:
+	switch {
+	case it.Rarity == itemtext.Unique:
+		r, err = p.unique(ctx, it, h.base)
+	case it.Rarity == itemtext.Rare && isCluster(it):
+		r, err = p.cluster(ctx, it)
+	case it.Rarity == itemtext.Rare:
 		r, err = p.rare(ctx, it, text)
 	default:
 		return nil, &Unsupported{strings.ToLower(string(it.Rarity)) + " " + it.ItemClass}
@@ -158,7 +160,7 @@ var categories = map[string]string{
 	"Boots": "armour.boots", "Gloves": "armour.gloves", "Helmets": "armour.helmet",
 	"Body Armours": "armour.chest", "Shields": "armour.shield", "Quivers": "armour.quiver",
 	"Rings": "accessory.ring", "Amulets": "accessory.amulet", "Belts": "accessory.belt",
-	"Jewels": "jewel",
+	"Jewels": "jewel.base", "Abyss Jewels": "jewel.abyss",
 
 	"Bows": "weapon.bow", "Claws": "weapon.claw", "Daggers": "weapon.basedagger",
 	"Rune Daggers": "weapon.runedagger", "One Hand Axes": "weapon.oneaxe",
@@ -174,6 +176,9 @@ const fetchLots = 2 * trade.FetchLimit
 // the spike's first search too strict.
 func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Result, error) {
 	cat, ok := categories[it.ItemClass]
+	if strings.HasSuffix(it.BaseName, " Eye Jewel") { // whatever the copy calls its class
+		cat, ok = "jewel.abyss", true
+	}
 	if !ok {
 		return nil, &Unsupported{"rare " + it.ItemClass}
 	}

@@ -42,8 +42,23 @@ type StatFilter struct {
 }
 
 type MinMax struct {
-	Min *float64 `json:"min,omitempty"`
-	Max *float64 `json:"max,omitempty"`
+	Min    *float64 `json:"min,omitempty"`
+	Max    *float64 `json:"max,omitempty"`
+	Option any      `json:"option,omitempty"` // a choice stat, e.g. a cluster's small passive
+}
+
+// Exact is a filter on a stat with no number to bound: an option stat
+// ("enchant.stat_3948993189|32" → that id with option 32) or a plain one.
+func Exact(id string) StatFilter {
+	stat, opt, ok := strings.Cut(id, "|")
+	if !ok {
+		return StatFilter{ID: id}
+	}
+	n, err := strconv.Atoi(opt)
+	if err != nil {
+		return StatFilter{ID: id}
+	}
+	return StatFilter{ID: stat, Value: &MinMax{Option: n}}
 }
 
 // FilterGroup is one of the trade site's filter groups: type_filters, map_filters, ...
@@ -124,6 +139,18 @@ func ParseStats(r io.Reader) (*Stats, error) {
 func (s *Stats) Resolve(kind, line string) (Match, bool) {
 	m := s.byKind[kind]
 	nums := numRe.FindAllString(line, -1)
+	first := func() float64 {
+		var v float64
+		if len(nums) > 0 {
+			v, _ = strconv.ParseFloat(strings.TrimPrefix(nums[0], "+"), 64)
+		}
+		return v
+	}
+	// written out in full: an option ("...grant: 12% increased Fire Damage")
+	// or a one-off text ("1 Added Passive Skill is Prodigious Defence")
+	if id, ok := m[line]; ok {
+		return Match{ID: id, Text: line, Value: first()}, true
+	}
 	tmpl := numRe.ReplaceAllStringFunc(line, func(n string) string {
 		if strings.HasPrefix(n, "+") {
 			return "+#"
@@ -135,11 +162,7 @@ func (s *Stats) Resolve(kind, line string) (Match, bool) {
 	})
 	for _, t := range []string{tmpl, strings.ReplaceAll(tmpl, "+#", "#")} {
 		if id, ok := m[t]; ok {
-			var v float64
-			if len(nums) > 0 {
-				v, _ = strconv.ParseFloat(strings.TrimPrefix(nums[0], "+"), 64)
-			}
-			return Match{ID: id, Text: line, Value: v}, true
+			return Match{ID: id, Text: line, Value: first()}, true
 		}
 	}
 	return Match{}, false

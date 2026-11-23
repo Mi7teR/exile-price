@@ -44,7 +44,8 @@ const (
 
 // Clean dedupes by account+signature, then drops lots that are both cheap
 // against the median and old: a real cheap item would have been bought.
-// In a cheap market (median under MinReference) nothing is dropped as a fixer.
+// In a cheap market (median under MinReference) nothing is dropped as a
+// fixer, nor when a quarter of the lots or more look like one.
 // Lots older than OldAge go too while MinFresh fresher ones remain.
 func Clean(lots []Lot, cfg Config, now time.Time) Result {
 	var r Result
@@ -60,8 +61,21 @@ func Clean(lots []Lot, cfg Config, now time.Time) Result {
 		uniq = append(uniq, l)
 	}
 	r.Reference = quantile(prices(uniq), 0.5)
+	suspect := func(l Lot) bool {
+		return r.Reference >= cfg.MinReference && l.Chaos < r.Reference*cfg.CheapRatio && now.Sub(l.Indexed) > cfg.StaleAge
+	}
+	n := 0
 	for _, l := range uniq {
-		if r.Reference >= cfg.MinReference && l.Chaos < r.Reference*cfg.CheapRatio && now.Sub(l.Indexed) > cfg.StaleAge {
+		if suspect(l) {
+			n++
+		}
+	}
+	// fixers are a few baits under a market; a quarter of the page or more
+	// that cheap is the market itself (spike, 2026-11-23: eight 3–10c abyss
+	// jewels were dropped under a 20c median)
+	market := n*4 >= len(uniq)
+	for _, l := range uniq {
+		if !market && suspect(l) {
 			r.Dropped = append(r.Dropped, Dropped{l, ReasonCheapOld})
 			continue
 		}

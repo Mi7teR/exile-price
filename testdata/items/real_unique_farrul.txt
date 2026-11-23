@@ -1,0 +1,26 @@
+Item Class: Body Armours
+Rarity: Unique
+Farrul's Fur
+Triumphant Lamellar
+--------
+Quality: +20% (augmented)
+Armour: 1042 (augmented)
+Evasion Rating: 1309 (augmented)
+--------
+Requirements:
+Level: 69
+Str: 95
+Dex: 95
+--------
+Sockets: R-W R 
+--------
+Item Level: 85
+--------
+102% increased Armour and Evasion
++98 to maximum Life
+Aspect of the Cat has no Reservation
++2.00 seconds to Cat's Stealth Duration
+Gain up to your maximum number of Frenzy and Power Charges when you gain Cat's Stealth
+You have Phasing while you have Cat's Stealth
+--------
+Corrupted

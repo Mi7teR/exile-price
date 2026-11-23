@@ -1,0 +1,17 @@
+Item Class: Abyss Jewels
+Rarity: Rare
+Whispering Sight
+Ghastly Eye Jewel
+--------
+Abyss
+--------
+Requirements:
+Level: 40
+--------
+Item Level: 51
+--------
++13 to Dexterity
++22 to maximum Life
+Minions deal 13 to 20 additional Fire Damage
+--------
+Place into an Abyssal Socket on an Item or into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.

@@ -1,6 +1,7 @@
 package pricer
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -127,5 +128,58 @@ func TestInDPS(t *testing.T) {
 		if inDPSRe.MatchString(text) != want {
 			t.Errorf("%q in DPS = %v", text, !want)
 		}
+	}
+}
+
+func parsed(t *testing.T, file string) *itemtext.Item {
+	t.Helper()
+	gd, err := gamedata.PoE1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	it, err := itemtext.New(gd).Parse(item(t, file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return it
+}
+
+func TestClusterStats(t *testing.T) {
+	it := parsed(t, "real_cluster_medium.txt")
+	if !isCluster(it) {
+		t.Fatalf("not a cluster: %q", it.BaseName)
+	}
+	// ids from a real listing, 2026-11-23
+	base, notables := clusterFilters(it, recordedStats(t))
+	ids := []string{}
+	for _, f := range append(base, notables...) {
+		id := f.ID
+		if f.Value != nil && f.Value.Option != nil {
+			id += "|opt"
+		}
+		ids = append(ids, id)
+	}
+	want := "[enchant.stat_3086156145 enchant.stat_4079888060 enchant.stat_3948993189|opt explicit.stat_2783012144]"
+	if got := fmt.Sprint(ids); got != want {
+		t.Errorf("filters = %s, want %s", got, want)
+	}
+	if *base[0].Value.Min != 4 || *base[0].Value.Max != 4 {
+		t.Errorf("passives = %+v, want exactly 4", base[0].Value)
+	}
+	if f := trade.Exact("enchant.stat_3948993189|32"); f.ID != "enchant.stat_3948993189" || f.Value.Option != 32 {
+		t.Errorf("option filter = %+v", f)
+	}
+}
+
+func TestUniqueFilters(t *testing.T) {
+	it := &itemtext.Item{Explicits: []itemtext.ModLine{
+		{Text: "+31 to maximum Life", HasRange: true},
+		{Text: "+48% to Lightning Resistance", HasRange: true},
+		{Text: "15% reduced Mana Reservation Efficiency of Skills", HasRange: true},
+		{Text: "Has 1 Socket"},
+	}}
+	got := uniqueFilters(it, mods{}, recordedStats(t))
+	if len(got) != 2 || *got[0].Value.Min != 29 || *got[1].Value.Min != 45 {
+		t.Errorf("filters = %+v, want life ≥ 29 and lightning ≥ 45", got)
 	}
 }

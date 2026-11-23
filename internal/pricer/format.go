@@ -21,6 +21,9 @@ func (r *Result) Line(divine float64) string {
 	if r.Base > 0 {
 		base = i18n.Tf(" · base ~%s", Money(r.Base, divine))
 	}
+	if r.Avg > 0 {
+		base += i18n.Tf(" · poe.ninja ~%s", Money(r.Avg, divine))
+	}
 	if len(r.Kept) == 0 {
 		return i18n.Tf("no listings · %d on the site", r.Total) + base
 	}

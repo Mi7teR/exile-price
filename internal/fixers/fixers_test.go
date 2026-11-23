@@ -70,3 +70,14 @@ func TestCleanDropsOldWhenFreshSuffice(t *testing.T) {
 		t.Errorf("kept %d of 4 with only 2 fresh", len(r.Kept))
 	}
 }
+
+func TestCleanKeepsACheapMarket(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	day := now.Add(-48 * time.Hour)
+	// abyss jewel, 2026-11-23: many 3–10c lots under a 20c+ median are the market
+	lots := []Lot{{"a", "1", 3, day}, {"b", "2", 5, day}, {"c", "3", 8, day}, {"d", "4", 10, day},
+		{"e", "5", 20, day}, {"f", "6", 25, day}, {"g", "7", 30, day}, {"h", "8", 35, day}, {"i", "9", 50, day}}
+	if r := Clean(lots, Default, now); len(r.Dropped) != 0 {
+		t.Errorf("dropped %+v", r.Dropped)
+	}
+}
