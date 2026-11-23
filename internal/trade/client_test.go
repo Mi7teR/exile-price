@@ -2,6 +2,7 @@ package trade
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -39,5 +40,14 @@ func TestDoFailsWhenBlockOutlastsDeadline(t *testing.T) {
 	}
 	if time.Since(t0) > 100*time.Millisecond {
 		t.Errorf("slept before failing")
+	}
+}
+
+func TestFetchItemOnlineShapes(t *testing.T) {
+	for _, online := range []string{`false`, `null`, `{}`, `{"status":"afk"}`} {
+		var it FetchItem
+		if err := json.Unmarshal([]byte(`{"listing":{"account":{"name":"a","online":`+online+`}}}`), &it); err != nil {
+			t.Errorf("online=%s: %v", online, err)
+		}
 	}
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.5"
+var version = "0.1.6"
 
 const (
 	className = "poe-pricecheck-listener"
@@ -87,6 +87,13 @@ type overlay struct {
 	listener     atomic.Pointer[win.Listener]
 	pricer       atomic.Pointer[pricer.Pricer] // swapped when the settings change
 	settingsOpen atomic.Bool
+
+	last struct { // the last priced item; a repeat within a minute reuses it
+		p    *pricer.Pricer
+		text string
+		line string
+		at   time.Time
+	}
 
 	cfgMu sync.Mutex
 	cfg   config.Config
@@ -238,6 +245,11 @@ func (a *overlay) price(text string) {
 		return
 	}
 	hideAfter := a.config().HideAfter
+	if a.last.p == p && a.last.text == text && time.Since(a.last.at) < time.Minute {
+		a.show(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
+		slog.Info("price cached", "line", a.last.line)
+		return
+	}
 	a.show("оцениваю…", ui.Pending, 20*time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -259,6 +271,7 @@ func (a *overlay) price(text string) {
 	default:
 		line := r.Line(p.Divine())
 		a.show(line, ui.Price, hideAfter)
+		a.last.p, a.last.text, a.last.line, a.last.at = p, text, line, time.Now()
 		attrs := []any{"item", r.Item, "line", line, "source", r.Source, "took", took, "total", r.Total,
 			"kept", len(r.Kept), "dropped", len(r.Dropped), "link", r.Link}
 		for _, t := range r.Timings {

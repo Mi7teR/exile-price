@@ -53,10 +53,9 @@ type Listing struct {
 		Currency string  `json:"currency"`
 	} `json:"price"`
 	Account struct {
-		Name   string `json:"name"`
-		Online *struct {
-			Status string `json:"status"` // "afk" or empty
-		} `json:"online"`
+		Name string `json:"name"`
+		// {"status":"afk"}, {} or null, and sometimes a bare false.
+		Online json.RawMessage `json:"online"`
 	} `json:"account"`
 }
 

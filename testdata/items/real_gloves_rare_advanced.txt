@@ -1,0 +1,25 @@
+Item Class: Gloves
+Rarity: Rare
+Behemoth Claw
+Runic Gauntlets
+--------
+Ward: 180 (augmented)
+--------
+Requirements:
+Level: 69
+Str: 38
+Dex: 38
+Int: 38
+--------
+Sockets: W-W-W-W 
+--------
+Item Level: 85
+--------
+{ Prefix Modifier "Engraved" (Tier: 5) — Defences }
+54(43-55)% increased Ward
+{ Suffix Modifier "of Plunder" (Tier: 2) — Drop }
++10(6-10)% to Item Rarity
+{ Suffix Modifier "of Masterstroke" (Tier: 1) — Life }
+Gain 108(84-110) Life per Enemy Killed
+{ Suffix Modifier "of the Panther" (Tier: 6) — Attribute }
++32(28-32) to Dexterity
