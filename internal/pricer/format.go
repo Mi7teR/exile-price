@@ -29,8 +29,8 @@ func (r *Result) Line(divine float64) string {
 	if n := r.Fixers(); n > 0 {
 		s += ", " + i18n.Count(n, "fixer")
 	}
-	if len(r.Kept) < 5 {
-		s += i18n.T(" · few listings")
+	if r.Relaxed || len(r.Kept) < 5 {
+		s += i18n.T(" · rough estimate")
 	}
 	return s + base
 }

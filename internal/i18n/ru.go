@@ -10,7 +10,7 @@ var ru = map[string]string{
 	"base ~%s · poe.ninja":         "база ~%s · poe.ninja",
 	" · base ~%s":                  " · база ~%s",
 	"no listings · %d on the site": "нет лотов · на сайте %d",
-	" · few listings":              " · мало данных",
+	" · rough estimate":            " · оценка грубая",
 	"any %d of %d mods":            "любые %d из %d модов",
 
 	// pricer errors

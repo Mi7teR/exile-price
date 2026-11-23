@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,6 +53,7 @@ type Result struct {
 	Dropped  []fixers.Dropped
 	Link     string
 	Note     string
+	Relaxed  bool // trade: matched any n−1 of the n mods, not all
 	Timings  []Timing
 }
 
@@ -169,15 +169,7 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item) (*Result, error) {
 	if !ok {
 		return nil, &Unsupported{"rare " + it.ItemClass}
 	}
-	var filters []trade.StatFilter
-	for _, l := range it.ActiveExplicits() {
-		m, ok := p.Stats.Resolve("explicit", l.Text)
-		if !ok || m.Value == 0 {
-			continue
-		}
-		min := math.Floor(m.Value * (1 - p.RollSlack))
-		filters = append(filters, trade.StatFilter{ID: m.ID, Value: &trade.MinMax{Min: &min}})
-	}
+	filters := rareFilters(it.ActiveExplicits(), p.Stats, p.RollSlack)
 	if len(filters) == 0 {
 		return nil, errors.New(i18n.T("no mod matched a trade stat"))
 	}
@@ -238,6 +230,7 @@ func (p *Pricer) tradePrice(ctx context.Context, q trade.Query, filters []trade.
 		}
 		r.Timings = append(r.Timings, Timing{"search (relaxed)", time.Since(t)})
 		r.Note = i18n.Tf("any %d of %d mods", len(filters)-1, len(filters))
+		r.Relaxed = true
 	}
 	r.Total = sr.Total
 	r.Link = trade.SearchURL(p.League, sr.ID)

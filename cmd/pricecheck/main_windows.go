@@ -34,7 +34,7 @@ import (
 	"github.com/Mi7teR/poe-pricecheck/internal/ui"
 )
 
-var version = "0.1.9"
+var version = "0.1.10"
 
 const (
 	className = "poe-pricecheck-listener"
