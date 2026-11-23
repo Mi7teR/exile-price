@@ -37,3 +37,20 @@ func TestLoadWritesDefaultsThenReadsEdits(t *testing.T) {
 		t.Errorf("missing keys lost their defaults: %+v", cfg)
 	}
 }
+
+func TestSaveRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Default()
+	cfg.League = "Hardcore Covens"
+	cfg.POESESSID = "0123456789abcdef0123456789abcdef"
+	if err := Save(dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != cfg {
+		t.Errorf("round trip: got %+v, want %+v", got, cfg)
+	}
+}

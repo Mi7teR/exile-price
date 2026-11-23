@@ -25,7 +25,7 @@ var (
 	procDispatchMessage   = user32.NewProc("DispatchMessageW")
 	procPostMessage       = user32.NewProc("PostMessageW")
 	procPostQuitMessage   = user32.NewProc("PostQuitMessage")
-	procFindWindowEx      = user32.NewProc("FindWindowExW")
+	procFindWindow        = user32.NewProc("FindWindowW")
 	procAddClipListener   = user32.NewProc("AddClipboardFormatListener")
 	procOpenClipboard     = user32.NewProc("OpenClipboard")
 	procCloseClipboard    = user32.NewProc("CloseClipboard")
@@ -40,8 +40,7 @@ const (
 	wmClose           = 0x0010
 	wmHotkey          = 0x0312
 	wmClipboardUpdate = 0x031D
-	wmEscape          = 0x8000 + 1  // WM_APP+1: wParam 1 = grab Esc, 0 = release
-	hwndMessage       = ^uintptr(2) // -3
+	wmEscape          = 0x8000 + 1 // WM_APP+1: wParam 1 = grab Esc, 0 = release
 	cfUnicodeText     = 13
 	vkEscape          = 0x1B
 	modNoRepeat       = 0x4000
@@ -56,17 +55,29 @@ func SetDPIAware() {
 	procSetDpiAwarenessCx.Call(dpiPerMonitorV2)
 }
 
-// Events are called on the listener's own thread: keep them short.
+// Events are called on the listener's own thread: keep them short. Tray
+// menu actions run on their own goroutines.
 type Events struct {
 	Clipboard func(text string) // clipboard text changed
 	Escape    func()            // Esc pressed while grabbed
 	Close     func()            // another instance asked this one to quit
+	TrayTip   string            // tray icon tooltip; empty = no tray icon
+	TrayClick func()            // left click on the tray icon
+	TrayMenu  []MenuItem        // right click menu
 }
 
-// Listener is a hidden message-only window that receives clipboard updates,
-// the Esc hotkey and the quit request from a second instance.
+type MenuItem struct {
+	Label string
+	Do    func()
+}
+
+// Listener is a hidden window that receives clipboard updates, the Esc
+// hotkey, tray icon clicks and the quit request from a second instance. It
+// is a hidden top-level window, not a message-only one: a tray menu needs a
+// window that can become foreground to close properly.
 type Listener struct {
 	hwnd uintptr
+	ev   Events
 }
 
 type wndClassEx struct {
@@ -96,7 +107,7 @@ type msg struct {
 
 // Listen starts the message-only window on a locked OS thread.
 func Listen(className string, ev Events) (*Listener, error) {
-	l := &Listener{}
+	l := &Listener{ev: ev}
 	ready := make(chan error, 1)
 	go func() {
 		runtime.LockOSThread()
@@ -139,7 +150,11 @@ func (l *Listener) create(className string, ev Events) error {
 				procUnregisterHotKey.Call(hwnd, hotkeyEsc)
 			}
 			return 0
+		case wmTray:
+			l.onTray(hwnd, lp)
+			return 0
 		case wmClose:
+			l.RemoveTray()
 			if ev.Close != nil {
 				ev.Close()
 			}
@@ -147,6 +162,10 @@ func (l *Listener) create(className string, ev Events) error {
 			return 0
 		case wmDestroy:
 			procPostQuitMessage.Call(0)
+			return 0
+		}
+		if m == taskbarCreated() { // Explorer restarted: the tray icon is gone
+			l.addTray(hwnd)
 			return 0
 		}
 		r, _, _ := procDefWindowProc.Call(hwnd, m, wp, lp)
@@ -157,7 +176,7 @@ func (l *Listener) create(className string, ev Events) error {
 	if r, _, err := procRegisterClassEx.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 		return fmt.Errorf("RegisterClassEx: %w", err)
 	}
-	hwnd, _, err := procCreateWindowEx.Call(0, uintptr(unsafe.Pointer(cls)), 0, 0, 0, 0, 0, 0, hwndMessage, 0, inst, 0)
+	hwnd, _, err := procCreateWindowEx.Call(0, uintptr(unsafe.Pointer(cls)), 0, 0, 0, 0, 0, 0, 0, 0, inst, 0)
 	if hwnd == 0 {
 		return fmt.Errorf("CreateWindowEx: %w", err)
 	}
@@ -165,6 +184,7 @@ func (l *Listener) create(className string, ev Events) error {
 		return fmt.Errorf("AddClipboardFormatListener: %w", err)
 	}
 	l.hwnd = hwnd
+	l.addTray(hwnd)
 	return nil
 }
 
@@ -182,7 +202,7 @@ func (l *Listener) GrabEscape(on bool) {
 // quit. It reports whether one was found.
 func AskRunningToQuit(className string) bool {
 	cls, _ := windows.UTF16PtrFromString(className)
-	hwnd, _, _ := procFindWindowEx.Call(hwndMessage, 0, uintptr(unsafe.Pointer(cls)), 0)
+	hwnd, _, _ := procFindWindow.Call(uintptr(unsafe.Pointer(cls)), 0)
 	if hwnd == 0 {
 		return false
 	}

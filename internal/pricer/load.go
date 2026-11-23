@@ -45,13 +45,14 @@ func Load(ctx context.Context, o Options) (*Pricer, error) {
 	if err := l.json("trade-leagues.json", tradeData+"leagues", 0, &leagues); err != nil {
 		return nil, err
 	}
-	if league == "" {
-		for _, lg := range leagues.Result {
-			if lg.Realm == "pc" && isTemporarySoftcore(lg.ID) {
-				league = lg.ID
-				break
-			}
+	var all []string
+	for _, lg := range leagues.Result {
+		if lg.Realm == "pc" {
+			all = append(all, lg.ID)
 		}
+	}
+	if league == "" {
+		league = AutoLeague(all)
 		if league == "" {
 			return nil, fmt.Errorf("в списке трейд-лиг нет временной софткор-лиги; задайте league в config.toml")
 		}
@@ -90,6 +91,7 @@ func Load(ctx context.Context, o Options) (*Pricer, error) {
 	c := o.Config
 	p := &Pricer{
 		League:     league,
+		Leagues:    all,
 		Trade:      &trade.Client{HTTP: o.HTTP, UserAgent: o.UserAgent, POESESSID: o.POESESSID},
 		Stats:      stats,
 		Currencies: cur,
@@ -134,6 +136,16 @@ func Warm(ctx context.Context, o Options) error {
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	return resp.Body.Close()
+}
+
+// AutoLeague is the first temporary softcore league in GGG's order, or "".
+func AutoLeague(ids []string) string {
+	for _, id := range ids {
+		if isTemporarySoftcore(id) {
+			return id
+		}
+	}
+	return ""
 }
 
 func isTemporarySoftcore(id string) bool {

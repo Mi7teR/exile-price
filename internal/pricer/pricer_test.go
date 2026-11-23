@@ -102,3 +102,14 @@ func TestLine(t *testing.T) {
 		t.Errorf("plural(11) = %q", got)
 	}
 }
+
+func TestAutoLeague(t *testing.T) {
+	// order and names from the recorded /api/trade/data/leagues, pc realm
+	ids := []string{"Covens", "Hardcore Covens", "Ruthless Covens", "HC Ruthless Covens", "Standard", "Hardcore", "Ruthless", "Hardcore Ruthless"}
+	if got := AutoLeague(ids); got != "Covens" {
+		t.Errorf("auto = %q", got)
+	}
+	if got := AutoLeague(ids[1:]); got != "" {
+		t.Errorf("no temporary softcore league, got %q", got)
+	}
+}

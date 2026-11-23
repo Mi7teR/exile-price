@@ -21,6 +21,7 @@ import (
 
 type Pricer struct {
 	League     string
+	Leagues    []string // every pc trade league, in the order GGG lists them
 	Trade      *trade.Client
 	Stats      *trade.Stats
 	Currencies map[string]string // trade currency id → full name, from /data/static

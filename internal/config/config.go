@@ -16,6 +16,7 @@ import (
 
 type Config struct {
 	League    string        `toml:"league"`     // empty = current temporary softcore league
+	POESESSID string        `toml:"poesessid"`  // optional pathofexile.com session; never logged
 	HideAfter time.Duration `toml:"hide_after"` // the answer line hides after this
 	RollSlack float64       `toml:"roll_slack"` // rare filters: min = roll × (1 − roll_slack)
 	Fixers    Fixers        `toml:"fixers"`
@@ -37,6 +38,7 @@ func Default() Config {
 
 const header = `# poe-pricecheck settings. Delete a line to get its default back.
 # league = ""  → current temporary softcore league; set e.g. "Hardcore Covens" to override.
+# poesessid    → optional, the POESESSID cookie of pathofexile.com; keep this file private.
 `
 
 // Dir is the app folder; it is created if missing.
@@ -55,12 +57,7 @@ func Load(dir string) (Config, error) {
 	path := filepath.Join(dir, "config.toml")
 	b, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		var buf bytes.Buffer
-		buf.WriteString(header)
-		if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
-			return cfg, err
-		}
-		return cfg, os.WriteFile(path, buf.Bytes(), 0o644)
+		return cfg, Save(dir, cfg)
 	}
 	if err != nil {
 		return cfg, err
@@ -69,4 +66,21 @@ func Load(dir string) (Config, error) {
 		return Default(), fmt.Errorf("%s: %w", path, err)
 	}
 	return cfg, nil
+}
+
+// Save writes cfg to dir/config.toml, replacing it atomically. The file may
+// hold the POESESSID: mode 0600 guards it on Unix; on Windows it is guarded
+// only by living in the user's own %APPDATA%.
+func Save(dir string, cfg Config) error {
+	var buf bytes.Buffer
+	buf.WriteString(header)
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "config.toml")
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, buf.Bytes(), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }

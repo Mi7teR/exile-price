@@ -6,6 +6,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"flag"
 	"fmt"
@@ -54,7 +55,7 @@ func run(league string, verbose bool, file string) error {
 		HTTP:      &http.Client{Timeout: 15 * time.Second},
 		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/poe-pricecheck)",
 		CacheDir:  filepath.Join(dir, "cache"),
-		POESESSID: os.Getenv("POESESSID"),
+		POESESSID: cmp.Or(os.Getenv("POESESSID"), cfg.POESESSID),
 		Config:    cfg,
 	}
 	t0 := time.Now()
