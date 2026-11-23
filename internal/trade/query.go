@@ -66,12 +66,14 @@ type FilterGroup struct {
 	Filters map[string]any `json:"filters"`
 }
 
-// NewQuery is an online-only query sorted by price ascending.
+// NewQuery is an online-only query sorted by price ascending, one listing
+// per seller account: a seller with four copies would count four times.
 func NewQuery() Query {
 	var q Query
 	q.Query.Status = Option{"online"}
 	q.Query.Stats = []StatGroup{}
 	q.Sort = map[string]string{"price": "asc"}
+	q.SetFilter("trade_filters", "collapse", Option{"true"})
 	return q
 }
 
