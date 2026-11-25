@@ -195,6 +195,9 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	q.SetFilter("type_filters", "rarity", trade.Option{Option: "nonunique"})
 	dps := false
 	var searched []string
+	if s := socketFilter(&q, it); s != "" {
+		searched = append(searched, s)
+	}
 	if weapon {
 		pdps, edps := weaponDPS(text)
 		for _, d := range []struct {
@@ -221,10 +224,10 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	r, err := p.tradePrice(ctx, q, filters)
 	if r != nil {
 		r.Item = it.Name + ", " + it.BaseName
+		r.Searched = searched
 		for _, f := range filters {
 			r.Searched = append(r.Searched, f.Label)
 		}
-		r.Searched = append(r.Searched, searched...)
 		if l, ok := p.basePrice(it); ok {
 			r.Base = l.Chaos
 		}
@@ -363,16 +366,65 @@ func signature(fi trade.FetchItem) string {
 	return strings.Join(parts, "|")
 }
 
-// links is the size of the largest linked socket group.
-func links(sockets []itemtext.Socket) int {
-	n := map[int]int{}
-	most := 0
-	for _, s := range sockets {
-		n[s.Group]++
-		most = max(most, n[s.Group])
+// socketFilter asks for a 5- or 6-link, or else six sockets, which a buyer
+// pays for, with their off-colour sockets when more than half are: white,
+// and a colour the base has no requirement for, are hard to roll. It returns the label for the line,
+// "" when it asks for nothing.
+func socketFilter(q *trade.Query, it *itemtext.Item) string {
+	key, unit, sockets := "links", "L", largestGroup(it.Sockets)
+	if len(sockets) < 5 {
+		if len(it.Sockets) < 6 {
+			return ""
+		}
+		key, unit, sockets = "sockets", "S", it.Sockets
 	}
-	return most
+	min := float64(len(sockets))
+	v := trade.SocketValue{Min: &min}
+	req := it.Req
+	anyReq := req.Str+req.Dex+req.Int > 0 // no requirements: no colour is off
+	for _, s := range sockets {
+		switch {
+		case s.Color == 'W':
+			v.W++
+		case s.Color == 'R' && anyReq && req.Str == 0:
+			v.R++
+		case s.Color == 'G' && anyReq && req.Dex == 0:
+			v.G++
+		case s.Color == 'B' && anyReq && req.Int == 0:
+			v.B++
+		}
+	}
+	if 2*(v.R+v.G+v.B+v.W) <= len(sockets) { // a few off-colours are a few chromatics
+		v = trade.SocketValue{Min: &min}
+	}
+	q.SetFilter("socket_filters", key, v)
+	label := fmt.Sprintf("%d%s", len(sockets), unit)
+	for _, c := range []struct {
+		n    int
+		name string
+	}{{v.R, "R"}, {v.G, "G"}, {v.B, "B"}, {v.W, "W"}} {
+		if c.n > 0 {
+			label += fmt.Sprintf(" %d%s", c.n, c.name)
+		}
+	}
+	return label
 }
+
+// largestGroup is the largest linked socket group.
+func largestGroup(sockets []itemtext.Socket) []itemtext.Socket {
+	groups := map[int][]itemtext.Socket{}
+	var best []itemtext.Socket
+	for _, s := range sockets {
+		groups[s.Group] = append(groups[s.Group], s)
+		if len(groups[s.Group]) > len(best) {
+			best = groups[s.Group]
+		}
+	}
+	return best
+}
+
+// links is the size of the largest linked socket group.
+func links(sockets []itemtext.Socket) int { return len(largestGroup(sockets)) }
 
 type header struct{ class, rarity, name, base string }
 

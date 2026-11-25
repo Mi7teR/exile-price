@@ -1,8 +1,10 @@
 package pricer
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/Mi7teR/poe-lib/gamedata"
@@ -225,5 +227,35 @@ func TestUniqueFilters(t *testing.T) {
 	got := uniqueFilters(it, mods{}, recordedStats(t))
 	if len(got) != 2 || *got[0].Value.Min != 29 || *got[1].Value.Min != 45 {
 		t.Errorf("filters = %+v, want life ≥ 29 and lightning ≥ 45", got)
+	}
+}
+
+func TestSocketFilter(t *testing.T) {
+	gd, err := gamedata.PoE1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	six := strings.Replace(item(t, "boots_rare.txt"), "Sockets: B-R-R-G", "Sockets: B-R G R-G B", 1)
+	offSix := strings.Replace(item(t, "boots_rare.txt"), "Sockets: B-R-R-G", "Sockets: G-G G-G B R", 1)
+	cases := []struct{ text, label, json string }{
+		// a dex bow: its three white sockets are off-colour, the greens are not
+		{item(t, "real_bow_rare_advanced.txt"), "5L 3W", `"socket_filters":{"filters":{"links":{"min":5,"w":3}}}`},
+		{item(t, "boots_rare.txt"), "", ""}, // a 4-link is a few fusings
+		// str/int boots: two greens of six is not mostly off-colour
+		{six, "6S", `"socket_filters":{"filters":{"sockets":{"min":6}}}`},
+		// four greens of six is
+		{offSix, "6S 4G", `"socket_filters":{"filters":{"sockets":{"min":6,"g":4}}}`},
+	}
+	for _, c := range cases {
+		it, err := itemtext.New(gd).Parse(c.text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		q := trade.NewQuery()
+		label := socketFilter(&q, it)
+		b, _ := json.Marshal(q)
+		if label != c.label || c.json != "" && !strings.Contains(string(b), c.json) || c.json == "" && strings.Contains(string(b), "socket_filters") {
+			t.Errorf("label %q, query %s; want %q with %s", label, b, c.label, c.json)
+		}
 	}
 }

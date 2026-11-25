@@ -92,6 +92,16 @@ func (q *Query) SetFilter(group, key string, value any) {
 	g.Filters[key] = value
 }
 
+// SocketValue is the sockets or links filter: a minimum count and, per
+// colour, a minimum number of sockets of that colour.
+type SocketValue struct {
+	Min *float64 `json:"min,omitempty"`
+	R   int      `json:"r,omitempty"`
+	G   int      `json:"g,omitempty"`
+	B   int      `json:"b,omitempty"`
+	W   int      `json:"w,omitempty"`
+}
+
 // Range is a min/max filter value.
 func Range(min, max float64) MinMax { return MinMax{Min: &min, Max: &max} }
 
