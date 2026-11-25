@@ -2,6 +2,7 @@ package pricer
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
 
@@ -35,7 +36,7 @@ func (r *Result) Line(divine float64) string {
 	if r.Relaxed || len(r.Kept) < 5 {
 		s += i18n.T(" · rough estimate")
 	}
-	return s + base
+	return s + base + r.searched()
 }
 
 // Fixers counts lots dropped as price fixers (duplicates not included).
@@ -66,4 +67,20 @@ func MoneyRange(lo, hi, divine float64) string {
 		return a
 	}
 	return a + "–" + b
+}
+
+// searchedShown is how many searched mods the line names; the rest is "+N".
+const searchedShown = 3
+
+// searched names what a rare search asked for, so a player sees why the
+// price is what it is: " · searched: 68 life, 79% res, … +2".
+func (r *Result) searched() string {
+	if len(r.Searched) == 0 {
+		return ""
+	}
+	s := strings.Join(r.Searched[:min(len(r.Searched), searchedShown)], ", ")
+	if n := len(r.Searched) - searchedShown; n > 0 {
+		s += fmt.Sprintf(" +%d", n)
+	}
+	return i18n.Tf(" · searched: %s", s)
 }

@@ -1,6 +1,7 @@
 package pricer
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
@@ -53,9 +54,9 @@ func isJunk(text string) bool {
 func rareFilters(lines []itemtext.ModLine, m mods, stats *trade.Stats, slack float64) []trade.StatFilter {
 	var own, junkF []trade.StatFilter
 	var elem, chaos, life float64
-	at := func(id string, v float64) trade.StatFilter {
+	at := func(id string, v float64, label string) trade.StatFilter {
 		min := math.Floor(v * (1 - slack))
-		return trade.StatFilter{ID: id, Value: &trade.MinMax{Min: &min}}
+		return trade.StatFilter{ID: id, Value: &trade.MinMax{Min: &min}, Label: label}
 	}
 	for _, l := range lines {
 		if e, c, ok := resistances(l.Text); ok {
@@ -72,20 +73,20 @@ func rareFilters(lines []itemtext.ModLine, m mods, stats *trade.Stats, slack flo
 			continue
 		}
 		if isJunk(l.Text) || m.tiers[l.Text] >= lowTier {
-			junkF = append(junkF, at(st.ID, st.Value))
+			junkF = append(junkF, at(st.ID, st.Value, l.Text))
 			continue
 		}
-		own = append(own, at(st.ID, st.Value))
+		own = append(own, at(st.ID, st.Value, l.Text))
 	}
 	var out []trade.StatFilter
 	if life > 0 {
-		out = append(out, at(pseudoLife, life))
+		out = append(out, at(pseudoLife, life, fmt.Sprintf("%.0f life", life)))
 	}
 	if elem > 0 {
-		out = append(out, at(pseudoElemRes, elem))
+		out = append(out, at(pseudoElemRes, elem, fmt.Sprintf("%.0f%% res", elem)))
 	}
 	if chaos > 0 {
-		out = append(out, at(pseudoChaosRes, chaos))
+		out = append(out, at(pseudoChaosRes, chaos, fmt.Sprintf("%.0f%% chaos res", chaos)))
 	}
 	out = append(out, own...)
 	if len(out) == 0 {

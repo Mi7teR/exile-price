@@ -55,7 +55,8 @@ type Result struct {
 	Dropped  []fixers.Dropped
 	Link     string
 	Note     string
-	Relaxed  bool // trade: matched any n−1 of the n mods, not all
+	Relaxed  bool     // trade: matched any n−1 of the n mods, not all
+	Searched []string // rare: what the search asked for, e.g. "68 life"
 	Timings  []Timing
 }
 
@@ -193,12 +194,17 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	q.SetFilter("type_filters", "category", trade.Option{Option: cat})
 	q.SetFilter("type_filters", "rarity", trade.Option{Option: "nonunique"})
 	dps := false
+	var searched []string
 	if weapon {
 		pdps, edps := weaponDPS(text)
-		for key, v := range map[string]float64{"pdps": pdps, "edps": edps} {
-			if v >= 1 {
+		for _, d := range []struct {
+			key, label string
+			v          float64
+		}{{"pdps", "pDPS", pdps}, {"edps", "eDPS", edps}} {
+			if key, v := d.key, d.v; v >= 1 {
 				min := math.Floor(v * (1 - p.RollSlack))
 				q.SetFilter("weapon_filters", key, trade.MinMax{Min: &min})
+				searched = append(searched, fmt.Sprintf("%.0f %s", v, d.label))
 				dps = true
 			}
 		}
@@ -213,6 +219,10 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	r, err := p.tradePrice(ctx, q, filters)
 	if r != nil {
 		r.Item = it.Name + ", " + it.BaseName
+		for _, f := range filters {
+			r.Searched = append(r.Searched, f.Label)
+		}
+		r.Searched = append(r.Searched, searched...)
 		if l, ok := p.basePrice(it); ok {
 			r.Base = l.Chaos
 		}

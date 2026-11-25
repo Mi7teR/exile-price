@@ -98,6 +98,15 @@ func TestLine(t *testing.T) {
 	}
 }
 
+func TestLineSearched(t *testing.T) {
+	r := &Result{Source: "trade", Low: 14, Mid: 15, Kept: make([]fixers.Lot, 7),
+		Searched: []string{"68 life", "79% res", "30% increased Movement Speed", "+25 to Strength"}}
+	want := "~14c–15c · 7 listings · searched: 68 life, 79% res, 30% increased Movement Speed +1"
+	if got := r.Line(209.4); got != want {
+		t.Errorf("line = %q, want %q", got, want)
+	}
+}
+
 func TestPriceBase(t *testing.T) {
 	p := offline(t)
 	cases := []struct {

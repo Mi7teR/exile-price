@@ -14,6 +14,7 @@ var ru = map[string]string{
 	"Open the last search (Ctrl+Alt+O)": "Открыть последний поиск (Ctrl+Alt+O)",
 	"no trade search yet":               "поиска на trade ещё не было",
 	"any %d of %d mods":                 "любые %d из %d модов",
+	" · searched: %s":                   " · искал: %s",
 
 	// pricer errors
 	"%s is not priced yet":        "%s пока не оценивается",

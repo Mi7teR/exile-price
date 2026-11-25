@@ -56,6 +56,25 @@ func TestRareFiltersPseudo(t *testing.T) {
 	}
 }
 
+func TestRareFilterLabels(t *testing.T) {
+	gd, err := gamedata.PoE1()
+	if err != nil {
+		t.Fatal(err)
+	}
+	it, err := itemtext.New(gd).Parse(item(t, "boots_rare.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, f := range rareFilters(it.ActiveExplicits(), mods{local: true}, recordedStats(t), 0.15) {
+		got = append(got, f.Label)
+	}
+	want := "[68 life 79% res 30% increased Movement Speed]"
+	if fmt.Sprint(got) != want {
+		t.Errorf("labels = %v, want %s", got, want)
+	}
+}
+
 func TestRareFiltersSkipJunkAndLowTiers(t *testing.T) {
 	// ward T5, rarity T2, life per kill T1 (junk), dexterity T6: only rarity counts
 	got := filterMins(t, "real_gloves_rare_advanced.txt")

@@ -39,6 +39,7 @@ type StatGroup struct {
 type StatFilter struct {
 	ID    string  `json:"id"`
 	Value *MinMax `json:"value,omitempty"`
+	Label string  `json:"-"` // what the player sees searched, e.g. "68 life"
 }
 
 type MinMax struct {
