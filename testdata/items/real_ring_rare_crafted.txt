@@ -1,0 +1,25 @@
+Item Class: Rings
+Rarity: Rare
+Tempest Finger
+Two-Stone Ring
+--------
+Requirements:
+Level: 47
+--------
+Item Level: 59
+--------
+{ Implicit Modifier — Elemental, Fire, Lightning, Resistance }
++14(12-16)% to Fire and Lightning Resistances
+--------
+{ Prefix Modifier "Scintillating" (Tier: 3) — Defences, Energy Shield }
++36(32-37) to maximum Energy Shield
+{ Prefix Modifier "Frozen" (Tier: 4) — Damage, Elemental, Cold, Attack }
+Adds 12(10-13) to 23(20-24) Cold Damage to Attacks
+{ Master Crafted Prefix Modifier "Upgraded" (Rank: 2) — Mana }
++37(35-44) to maximum Mana
+{ Suffix Modifier "of the Fox" (Tier: 7) — Attribute }
++21(18-22) to Dexterity
+{ Suffix Modifier "of the Newt" (Tier: 7) — Life }
+Regenerate 1.4(1-2) Life per second
+{ Suffix Modifier "of Skill" (Tier: 1) — Attack, Speed }
+5(5-7)% increased Attack Speed

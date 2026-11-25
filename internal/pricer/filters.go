@@ -48,7 +48,8 @@ func isJunk(text string) bool {
 // rareFilters turns explicit mods into trade filters: resistances and flat
 // life become their totals (a buyer does not care whether the 79% is cold
 // and lightning or fire and cold), junk mods and low tiers are left out
-// unless nothing else is left, a weapon's local damage and speed are left
+// unless nothing else is left (on a weapon the DPS is left), bench crafts
+// are left out, a weapon's local damage and speed are left
 // to its DPS filters, the rest match their own stat. Every min is the roll
 // less slack.
 func rareFilters(lines []itemtext.ModLine, m mods, stats *trade.Stats, slack float64) []trade.StatFilter {
@@ -59,6 +60,9 @@ func rareFilters(lines []itemtext.ModLine, m mods, stats *trade.Stats, slack flo
 		return trade.StatFilter{ID: id, Value: &trade.MinMax{Min: &min}, Label: label}
 	}
 	for _, l := range lines {
+		if l.Crafted { // a bench craft: anyone adds it for a few chaos
+			continue
+		}
 		if e, c, ok := resistances(l.Text); ok {
 			elem, chaos = elem+e, chaos+c
 			continue
@@ -89,7 +93,7 @@ func rareFilters(lines []itemtext.ModLine, m mods, stats *trade.Stats, slack flo
 		out = append(out, at(pseudoChaosRes, chaos, fmt.Sprintf("%.0f%% chaos res", chaos)))
 	}
 	out = append(out, own...)
-	if len(out) == 0 {
+	if len(out) == 0 && !m.weapon { // a weapon still has its DPS filters
 		out = junkF
 	}
 	return out

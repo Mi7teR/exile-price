@@ -1,0 +1,31 @@
+Item Class: Bows
+Rarity: Rare
+Hate Wind
+Ranger Bow
+--------
+Bow
+Quality: +18% (augmented)
+Physical Damage: 85-178 (augmented)
+Elemental Damage: 37-71 (augmented), 31-470 (augmented)
+Critical Strike Chance: 6.00%
+Attacks per Second: 1.30
+--------
+Requirements:
+Level: 60
+Dex: 212 (unmet)
+--------
+Sockets: G-W-G-W-W 
+--------
+Item Level: 79
+--------
+{ Prefix Modifier "Reaver's" (Tier: 6) — Damage, Physical, Attack }
+29(25-34)% increased Physical Damage
++50(47-72) to Accuracy Rating
+{ Prefix Modifier "Burning" (Tier: 7) — Damage, Elemental, Fire, Attack }
+Adds 37(32-44) to 71(65-76) Fire Damage
+{ Prefix Modifier "Electrocuting" (Tier: 2) — Damage, Elemental, Lightning, Attack }
+Adds 31(23-32) to 470(458-531) Lightning Damage
+{ Suffix Modifier "of Conquest" (Tier: 3) — Life }
+Gain 42(35-44) Life per Enemy Killed
+{ Suffix Modifier "of the Mongoose" (Tier: 9) — Attribute }
++11(8-12) to Dexterity

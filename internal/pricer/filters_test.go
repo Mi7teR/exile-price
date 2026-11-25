@@ -56,22 +56,47 @@ func TestRareFiltersPseudo(t *testing.T) {
 	}
 }
 
-func TestRareFilterLabels(t *testing.T) {
+func filterLabels(t *testing.T, file string, m mods) []string {
+	t.Helper()
 	gd, err := gamedata.PoE1()
 	if err != nil {
 		t.Fatal(err)
 	}
-	it, err := itemtext.New(gd).Parse(item(t, "boots_rare.txt"))
+	text := item(t, file)
+	it, err := itemtext.New(gd).Parse(text)
 	if err != nil {
 		t.Fatal(err)
 	}
+	m.tiers = tiers(text)
 	var got []string
-	for _, f := range rareFilters(it.ActiveExplicits(), mods{local: true}, recordedStats(t), 0.15) {
+	for _, f := range rareFilters(it.ActiveExplicits(), m, recordedStats(t), 0.15) {
 		got = append(got, f.Label)
 	}
+	return got
+}
+
+func TestRareFilterLabels(t *testing.T) {
+	got := filterLabels(t, "boots_rare.txt", mods{local: true})
 	want := "[68 life 79% res 30% increased Movement Speed]"
 	if fmt.Sprint(got) != want {
 		t.Errorf("labels = %v, want %s", got, want)
+	}
+}
+
+func TestRareFiltersWeaponNoJunk(t *testing.T) {
+	// every mod is in the DPS filters, low tier or junk: the bow is searched
+	// by its DPS alone, not by accuracy, life per kill and dexterity
+	if got := filterLabels(t, "real_bow_rare_advanced.txt", mods{local: true, weapon: true}); len(got) != 0 {
+		t.Errorf("bow filters = %v, want none", got)
+	}
+}
+
+func TestRareFiltersSkipCrafted(t *testing.T) {
+	// "+37 to maximum Mana" is a bench craft: anyone adds it for a few chaos
+	got := filterLabels(t, "real_ring_rare_crafted.txt", mods{})
+	want := "[+36 to maximum Energy Shield Adds 12 to 23 Cold Damage to Attacks 5% increased Attack Speed]"
+	if fmt.Sprint(got) != want {
+		t.Errorf("ring labels = %v, want %s", got, want)
 	}
 }
 

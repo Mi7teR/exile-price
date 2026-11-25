@@ -212,7 +212,9 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	if len(filters) == 0 && !dps {
 		return nil, errors.New(i18n.T("no mod matched a trade stat"))
 	}
-	q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: filters}}
+	if len(filters) > 0 { // a weapon searched by DPS alone has none
+		q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: filters}}
+	}
 	if must := mustHave(it, p.Stats, p.RollSlack); len(must) > 0 {
 		q.Query.Stats = append(q.Query.Stats, trade.StatGroup{Type: "and", Filters: must})
 	}
