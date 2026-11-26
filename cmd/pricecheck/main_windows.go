@@ -9,11 +9,14 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -28,6 +31,7 @@ import (
 	"gioui.org/unit"
 
 	"github.com/Mi7teR/poe-pricecheck/internal/config"
+	"github.com/Mi7teR/poe-pricecheck/internal/notify"
 	"github.com/Mi7teR/poe-pricecheck/internal/platform/win"
 	"github.com/Mi7teR/poe-pricecheck/internal/pricer"
 	"github.com/Mi7teR/poe-pricecheck/internal/trade"
@@ -73,6 +77,18 @@ func main() {
 		}
 		a.quit()
 	}()
+	a.notice = &notice{cards: ui.NewCards(i18n.T("new listing")), win: new(app.Window)}
+	a.notice.win.Option(
+		app.Title("poe-pricecheck live"),
+		app.Decorated(false),
+		app.TopMost(true),
+		app.Size(unit.Dp(380), unit.Dp(60)),
+	)
+	go func() {
+		if err := a.notice.events(); err != nil {
+			slog.Error("notice window", "err", err)
+		}
+	}()
 	app.Main()
 }
 
@@ -91,6 +107,8 @@ type overlay struct {
 	settingsOpen atomic.Bool
 
 	link atomic.Pointer[string] // the last trade search, for Ctrl+Alt+O
+
+	notice *notice // "new listing" in the corner, from the browser extension
 
 	last struct { // the last priced item; a repeat within a minute reuses it
 		p    *pricer.Pricer
@@ -194,6 +212,7 @@ func (a *overlay) run() {
 	a.listener.Store(l)
 	slog.Info("listening")
 	go a.watch()
+	go a.notice.serve(a.statText)
 
 	a.show(i18n.Tf("poe-pricecheck %s · loading prices…", version), ui.Pending, time.Minute)
 	for !a.load() {
@@ -389,4 +408,128 @@ func setupLog(dir string) string {
 	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
 	_ = debug.SetCrashOutput(f, debug.CrashOptions{}) // panics land in the log, not in a missing console
 	return path
+}
+
+// notice is the second overlay window: a stack of "new listing" cards in
+// the top right corner when a trade live search tab finds something (see
+// extension/). A click on a card brings that browser tab to the front.
+type notice struct {
+	win   *app.Window
+	cards *ui.Cards
+	hwnd  atomic.Uintptr
+	size  image.Point
+
+	mu       sync.Mutex
+	browsers map[int]string // tab → the browser's exe, so a click opens the same browser
+}
+
+// noticeTTL is how long a card stays up.
+const noticeTTL = 20 * time.Second
+
+func (n *notice) events() error {
+	var ops op.Ops
+	for {
+		switch e := n.win.Event().(type) {
+		case app.Win32ViewEvent:
+			if e.HWND == 0 || n.hwnd.Load() != 0 {
+				continue
+			}
+			n.hwnd.Store(e.HWND)
+			before, _ := win.Foreground()
+			n.win.Run(func() {
+				win.MakeOverlay(e.HWND)
+				win.Hide(e.HWND)
+			})
+			go win.GiveBackFocus(e.HWND, before, n.win.Run)
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
+			need, tab := n.cards.Layout(gtx)
+			e.Frame(gtx.Ops)
+			h := n.hwnd.Load()
+			if tab != 0 {
+				go n.open(tab)
+			}
+			if need.Y > 0 && need != e.Size && need != n.size {
+				n.size = need
+				go func() {
+					win.Resize(h, int32(need.X), int32(need.Y))
+					win.ShowTopRight(h) // keep the right edge in the corner
+				}()
+			}
+		case app.DestroyEvent:
+			return e.Err
+		}
+	}
+}
+
+// serve listens on 127.0.0.1 for the extension. A busy port only costs the
+// notices: the price check keeps working.
+func (n *notice) serve(stat notify.StatText) {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", notify.Port))
+	if err != nil {
+		slog.Warn("live notices off", "err", err)
+		return
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/notify", notify.Handler(notify.ExtensionID, stat, n.show))
+	mux.HandleFunc("/focus", notify.FocusPage)
+	slog.Info("live notices on", "port", notify.Port)
+	if err := http.Serve(ln, mux); err != nil {
+		slog.Warn("live notices stopped", "err", err)
+	}
+}
+
+func (n *notice) show(s notify.Search, tab int, from uint16) {
+	h := n.hwnd.Load()
+	if h == 0 {
+		return
+	}
+	exe, err := win.TCPClientExe(from, notify.Port)
+	slog.Info("live notice", "search", s.String(), "browser", exe, "err", err)
+	n.mu.Lock()
+	if n.browsers == nil {
+		n.browsers = map[int]string{}
+	}
+	n.browsers[tab] = exe
+	n.mu.Unlock()
+	id := n.cards.Add(tab, s.Name, s.Filters, time.Now())
+	n.win.Invalidate()
+	win.ShowTopRight(h)
+	win.Beep()
+	time.AfterFunc(noticeTTL, func() {
+		if n.cards.Remove(id) == 0 {
+			win.Hide(h)
+		}
+		n.win.Invalidate()
+	})
+}
+
+// statText names the trade stats in a notice; before prices load there are
+// none and the notice shows only the search's name.
+func (a *overlay) statText(id string) (string, bool) {
+	p := a.pricer.Load()
+	if p == nil || p.Stats == nil {
+		return "", false
+	}
+	return p.Stats.Text(id)
+}
+
+// open has the extension bring the clicked card's tab to the front, and
+// hides the window if that was the last card.
+func (n *notice) open(tab int) {
+	if n.cards.Len() == 0 {
+		win.Hide(n.hwnd.Load())
+	}
+	n.mu.Lock()
+	exe := n.browsers[tab]
+	n.mu.Unlock()
+	url := notify.FocusURL(tab)
+	if exe != "" {
+		if err := exec.Command(exe, url).Start(); err == nil {
+			slog.Info("live notice opened", "browser", exe)
+			return
+		}
+	}
+	win.OpenFile(url) // the default browser
+	slog.Info("live notice opened")
 }

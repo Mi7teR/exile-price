@@ -23,6 +23,7 @@ var (
 	procGetWindowRect    = user32.NewProc("GetWindowRect")
 	procMonitorFromPoint = user32.NewProc("MonitorFromPoint")
 	procGetMonitorInfo   = user32.NewProc("GetMonitorInfoW")
+	procMessageBeep      = user32.NewProc("MessageBeep")
 )
 
 const (
@@ -72,6 +73,23 @@ func ShowAt(hwnd uintptr, x, y int32) {
 	py = max(work.Top, min(py, work.Bottom-h))
 	procSetWindowPos.Call(hwnd, hwndTopmost, uintptr(px), uintptr(py), 0, 0, swpNoSize|swpNoActivate|swpShowWindow)
 	procShowWindow.Call(hwnd, swShowNoActivate)
+}
+
+// ShowTopRight shows the window in the top right corner of the work area of
+// the monitor under the cursor, without activating it.
+func ShowTopRight(hwnd uintptr) {
+	var wr rect
+	procGetWindowRect.Call(hwnd, uintptr(unsafe.Pointer(&wr)))
+	work := workArea(CursorPos())
+	px, py := work.Right-(wr.Right-wr.Left)-16, work.Top+16
+	procSetWindowPos.Call(hwnd, hwndTopmost, uintptr(px), uintptr(py), 0, 0, swpNoSize|swpNoActivate|swpShowWindow)
+	procShowWindow.Call(hwnd, swShowNoActivate)
+}
+
+// Beep plays the system "information" sound.
+func Beep() {
+	const mbIconAsterisk = 0x40
+	procMessageBeep.Call(mbIconAsterisk)
 }
 
 // Resize sets the window size in pixels without moving or activating it.

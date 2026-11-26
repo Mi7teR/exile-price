@@ -108,6 +108,7 @@ func Range(min, max float64) MinMax { return MinMax{Min: &min, Max: &max} }
 // Stats maps mod text to trade stat ids, built from /api/trade/data/stats.
 type Stats struct {
 	byKind map[string]map[string]string // kind ("explicit", "implicit", "pseudo") → template → id
+	texts  map[string]string            // id → template
 }
 
 // Match is a mod line resolved to a trade stat and its first number.
@@ -133,10 +134,13 @@ func ParseStats(r io.Reader) (*Stats, error) {
 	if err := json.NewDecoder(r).Decode(&d); err != nil {
 		return nil, fmt.Errorf("trade stats: %w", err)
 	}
-	s := &Stats{byKind: map[string]map[string]string{}}
+	s := &Stats{byKind: map[string]map[string]string{}, texts: map[string]string{}}
 	for _, g := range d.Result {
 		m := map[string]string{}
 		for _, e := range g.Entries {
+			if _, dup := s.texts[e.ID]; !dup {
+				s.texts[e.ID] = e.Text
+			}
 			if _, dup := m[e.Text]; !dup { // first entry wins, as on the trade site
 				m[e.Text] = e.ID
 			}
@@ -144,6 +148,12 @@ func ParseStats(r io.Reader) (*Stats, error) {
 		s.byKind[g.ID] = m
 	}
 	return s, nil
+}
+
+// Text is the trade site's text for a stat id, with # for the numbers.
+func (s *Stats) Text(id string) (string, bool) {
+	t, ok := s.texts[id]
+	return t, ok
 }
 
 // Resolve matches one mod line of the given kind. The trade site writes

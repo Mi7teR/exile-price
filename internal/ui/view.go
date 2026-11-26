@@ -22,6 +22,7 @@ const (
 	Pending             // waiting for the trade site
 	Info                // startup, hints
 	Error
+	Notice // a live search found a listing
 )
 
 var colors = map[Kind]color.NRGBA{
@@ -29,6 +30,7 @@ var colors = map[Kind]color.NRGBA{
 	Pending: {R: 160, G: 160, B: 170, A: 255},
 	Info:    {R: 170, G: 200, B: 230, A: 255},
 	Error:   {R: 240, G: 130, B: 120, A: 255},
+	Notice:  {R: 140, G: 230, B: 140, A: 255},
 }
 
 var background = color.NRGBA{R: 18, G: 18, B: 22, A: 245}

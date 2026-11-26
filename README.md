@@ -15,6 +15,8 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 5. The tray icon: left click or "Settings…" opens the settings (league, POESESSID); the menu also has "Open the last search", "Open log" and "Quit". Running `poe-pricecheck.exe` again quits too.
 6. The interface follows the Windows display language: Russian for Russian, Belarusian and Kazakh, English otherwise.
 
+**Live search notices (optional):** a trade live search only beeps in the browser. The extension in `extension/` makes poe-pricecheck show a card in the top right corner over the game, with a sound: the search's name (the search field, else the item or category from the search link) and its enabled stat filters. Cards stack, newest on top, for 20 s; another listing from the same tab moves its card up and counts it. A click on a card brings that tab to the front in the browser that sent it. It only reads the tab: the new-listing counter in the live search tab's title or that the tab plays its sound, and the text of the item search field; it sends nothing to the trade site and changes nothing on the page. Install: download the source zip from Releases, unpack, open `chrome://extensions`, turn on "Developer mode", "Load unpacked" → the `extension` folder. poe-pricecheck listens on `127.0.0.1:47317` for this extension only.
+
 **League:** "Авто" picks the first temporary softcore league in GGG's trade list; pick another one (Hardcore, Ruthless, Standard) in the settings. **POESESSID** is optional: the trade site answers without a login today. It is stored in `config.toml` and never written to the log.
 
 Works over the game in windowed and windowed fullscreen modes; over exclusive fullscreen it is not guaranteed.
@@ -26,6 +28,12 @@ Files live in `%APPDATA%\poe-pricecheck\`: `config.toml` (written with defaults 
 ```bash
 go test ./...
 ```
+
+```bash
+node extension/count.test.js
+```
+
+On macOS, `go run ./cmd/notify-dev` shows the same cards in a plain window, to try the extension without Windows.
 
 ```bash
 go run ./cmd/pricecheck-cli -v testdata/items/boots_rare.txt
