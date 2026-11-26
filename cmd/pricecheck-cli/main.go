@@ -16,8 +16,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/config"
-	"github.com/Mi7teR/poe-pricecheck/internal/pricer"
+	"github.com/Mi7teR/exile-price/internal/config"
+	"github.com/Mi7teR/exile-price/internal/pricer"
 )
 
 var version = "0.1.0"
@@ -53,7 +53,7 @@ func run(league string, verbose bool, file string) error {
 	}
 	opts := pricer.Options{
 		HTTP:      &http.Client{Timeout: 15 * time.Second},
-		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/poe-pricecheck)",
+		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/exile-price)",
 		CacheDir:  filepath.Join(dir, "cache"),
 		POESESSID: cmp.Or(os.Getenv("POESESSID"), cfg.POESESSID),
 		Config:    cfg,

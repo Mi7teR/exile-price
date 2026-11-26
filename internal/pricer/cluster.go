@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Mi7teR/poe-lib/itemtext"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
+	"github.com/Mi7teR/exile-calc/itemtext"
+	"github.com/Mi7teR/exile-price/internal/trade"
 )
 
 // passivesStat is the cluster enchant "Adds # Passive Skills".

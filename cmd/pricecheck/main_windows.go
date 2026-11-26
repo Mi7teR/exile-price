@@ -24,19 +24,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
-	"github.com/Mi7teR/poe-pricecheck/internal/logfile"
+	"github.com/Mi7teR/exile-price/internal/i18n"
+	"github.com/Mi7teR/exile-price/internal/logfile"
 
 	"gioui.org/app"
 	"gioui.org/op"
 	"gioui.org/unit"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/config"
-	"github.com/Mi7teR/poe-pricecheck/internal/notify"
-	"github.com/Mi7teR/poe-pricecheck/internal/platform/win"
-	"github.com/Mi7teR/poe-pricecheck/internal/pricer"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
-	"github.com/Mi7teR/poe-pricecheck/internal/ui"
+	"github.com/Mi7teR/exile-price/internal/config"
+	"github.com/Mi7teR/exile-price/internal/notify"
+	"github.com/Mi7teR/exile-price/internal/platform/win"
+	"github.com/Mi7teR/exile-price/internal/pricer"
+	"github.com/Mi7teR/exile-price/internal/trade"
+	"github.com/Mi7teR/exile-price/internal/ui"
 )
 
 var version = "0.1.17"
@@ -137,7 +137,7 @@ func (a *overlay) options() pricer.Options {
 	cfg := a.config()
 	return pricer.Options{
 		HTTP:      httpClient,
-		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/poe-pricecheck)",
+		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/exile-price)",
 		CacheDir:  filepath.Join(a.dir, "cache"),
 		POESESSID: cfg.POESESSID,
 		Config:    cfg,

@@ -20,9 +20,9 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/notify"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
-	"github.com/Mi7teR/poe-pricecheck/internal/ui"
+	"github.com/Mi7teR/exile-price/internal/notify"
+	"github.com/Mi7teR/exile-price/internal/trade"
+	"github.com/Mi7teR/exile-price/internal/ui"
 )
 
 const ttl = 20 * time.Second

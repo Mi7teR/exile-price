@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+	"github.com/Mi7teR/exile-price/internal/i18n"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
+	"github.com/Mi7teR/exile-price/internal/fixers"
 )
 
 // Line is the one-line answer the overlay shows, e.g.

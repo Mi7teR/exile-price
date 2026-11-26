@@ -15,12 +15,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+	"github.com/Mi7teR/exile-price/internal/i18n"
 
-	"github.com/Mi7teR/poe-lib/itemtext"
-	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
-	"github.com/Mi7teR/poe-pricecheck/internal/ninja"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
+	"github.com/Mi7teR/exile-calc/itemtext"
+	"github.com/Mi7teR/exile-price/internal/fixers"
+	"github.com/Mi7teR/exile-price/internal/ninja"
+	"github.com/Mi7teR/exile-price/internal/trade"
 )
 
 type Pricer struct {

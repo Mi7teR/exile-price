@@ -4,7 +4,7 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 
 ## Use (Windows)
 
-1. Download `poe-pricecheck.exe` from [Releases](https://github.com/Mi7teR/poe-pricecheck/releases) and run it. Windows SmartScreen may warn about an unsigned file: "More info" → "Run anyway".
+1. Download `poe-pricecheck.exe` from [Releases](https://github.com/Mi7teR/exile-price/releases) and run it. Windows SmartScreen may warn about an unsigned file: "More info" → "Run anyway".
 2. A line shows the league; an icon appears in the tray.
 3. In the game, hover an item and press **Ctrl+Alt+C** (Ctrl+C works too). The price appears at the cursor:
    - currency, divination cards, gems: instantly, from poe.ninja;

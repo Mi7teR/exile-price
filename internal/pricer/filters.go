@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Mi7teR/poe-lib/itemtext"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
+	"github.com/Mi7teR/exile-calc/itemtext"
+	"github.com/Mi7teR/exile-price/internal/trade"
 )
 
 // Pseudo stats of the trade site, ids from the recorded /api/trade/data/stats.

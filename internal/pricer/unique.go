@@ -5,8 +5,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/Mi7teR/poe-lib/itemtext"
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
+	"github.com/Mi7teR/exile-calc/itemtext"
+	"github.com/Mi7teR/exile-price/internal/trade"
 )
 
 // uniqueTradeMin: a unique poe.ninja puts under this (chaos) is not worth

@@ -6,16 +6,16 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+	"github.com/Mi7teR/exile-price/internal/i18n"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
 	"gioui.org/op"
 	"gioui.org/unit"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/config"
-	"github.com/Mi7teR/poe-pricecheck/internal/pricer"
-	"github.com/Mi7teR/poe-pricecheck/internal/ui"
+	"github.com/Mi7teR/exile-price/internal/config"
+	"github.com/Mi7teR/exile-price/internal/pricer"
+	"github.com/Mi7teR/exile-price/internal/ui"
 )
 
 // openSettings shows the settings window; a second call while it is open

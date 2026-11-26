@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mi7teR/poe-pricecheck/internal/trade"
+	"github.com/Mi7teR/exile-price/internal/trade"
 )
 
 // recordedTrade answers trade search and fetch with the recorded boots

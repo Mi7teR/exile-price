@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Mi7teR/poe-lib/gamedata"
-	"github.com/Mi7teR/poe-lib/itemtext"
-	"github.com/Mi7teR/poe-pricecheck/internal/fixers"
-	"github.com/Mi7teR/poe-pricecheck/internal/ninja"
+	"github.com/Mi7teR/exile-calc/gamedata"
+	"github.com/Mi7teR/exile-calc/itemtext"
+	"github.com/Mi7teR/exile-price/internal/fixers"
+	"github.com/Mi7teR/exile-price/internal/ninja"
 )
 
 // offline is a pricer over the recorded poe.ninja response, no trade client:
