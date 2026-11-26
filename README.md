@@ -8,9 +8,9 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 2. A line shows the league; an icon appears in the tray.
 3. In the game, hover an item and press **Ctrl+Alt+C** (Ctrl+C works too). The price appears at the cursor:
    - currency, divination cards, gems: instantly, from poe.ninja;
-   - uniques: from poe.ninja; one worth 20c or more is also searched on the trade site against copies rolled at least as well, with the same corruption and links, and the line shows both prices;
-   - normal and magic bases: from poe.ninja (item level 82+);
-   - rares (armour, jewellery, jewels, abyss jewels, weapons), rare cluster jewels (by size, small passive and notables) and regular maps: in about a second, from the trade site. Resistances and life are searched as totals, weapons by physical and elemental DPS, influences and eldritch implicits are kept, a 5- or 6-link or six sockets is required (with the off-colours when more than half are off-colour), bench crafts are ignored; junk mods and, in a Ctrl+Alt+C copy, tier 5 and worse mods are not required. Each seller counts once. Price fixers (a few baits far under the rest, not a whole cheap market) and lots older than a week (when enough fresh ones exist) are left out. "rough estimate" means few listings or not all mods matched. For rares the line ends with what was searched, e.g. "searched: 68 life, 79% res, 30% increased Movement Speed +1".
+   - uniques: from poe.ninja; one worth 20c or more, or with an enchant, is also searched on the trade site against copies rolled at least as well, with the same corruption, links and enchant, and the line shows both prices;
+   - normal and magic bases: from poe.ninja (item level 82+); a base with an enchant is searched on the trade site with the same enchant, influences and at least its item level;
+   - rares (armour, jewellery, jewels, abyss jewels, weapons), rare cluster jewels (by size, small passive and notables) and regular maps: in about a second, from the trade site. Resistances and life are searched as totals, weapons by physical and elemental DPS, influences, eldritch implicits and enchants (lab enchants, anointments) are kept, a 5- or 6-link or six sockets is required (with the off-colours when more than half are off-colour), bench crafts are ignored; junk mods and, in a Ctrl+Alt+C copy, tier 5 and worse mods are not required. Each seller counts once. The same trade search is reused for 15 minutes, so checking an item again costs no trade request. Price fixers (a few baits far under the rest, not a whole cheap market) and lots older than a week (when enough fresh ones exist) are left out. "rough estimate" means few listings or not all mods matched. For rares the line ends with what was searched, e.g. "searched: 68 life, 79% res, 30% increased Movement Speed +1".
 4. The line hides after 5 s, on Esc, or when the mouse moves away. **Ctrl+Alt+O** opens the last trade search in the browser.
 5. The tray icon: left click or "Settings…" opens the settings (league, POESESSID); the menu also has "Open the last search", "Open log" and "Quit". Running `poe-pricecheck.exe` again quits too.
 6. The interface follows the Windows display language: Russian for Russian, Belarusian and Kazakh, English otherwise.
@@ -19,7 +19,7 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 
 Works over the game in windowed and windowed fullscreen modes; over exclusive fullscreen it is not guaranteed.
 
-Files live in `%APPDATA%\poe-pricecheck\`: `config.toml` (written with defaults on first run), `pricecheck.log`, `cache\`.
+Files live in `%APPDATA%\poe-pricecheck\`: `config.toml` (written with defaults on first run), `pricecheck.log` (with the older `pricecheck.log.1`, at most 10 MB together), `cache\`.
 
 ## Develop (any OS)
 

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Mi7teR/poe-pricecheck/internal/i18n"
+	"github.com/Mi7teR/poe-pricecheck/internal/logfile"
 
 	"gioui.org/app"
 	"gioui.org/op"
@@ -375,18 +376,16 @@ func (a *overlay) background() {
 	}
 }
 
-// setupLog writes to pricecheck.log next to the config, moving a log over
-// 5 MB to pricecheck.log.1 first.
+// setupLog writes to pricecheck.log next to the config; with the older
+// pricecheck.log.1 it stays under 10 MB.
 func setupLog(dir string) string {
 	path := filepath.Join(dir, "pricecheck.log")
-	if st, err := os.Stat(path); err == nil && st.Size() > 5<<20 {
-		_ = os.Rename(path, path+".1")
-	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	l, err := logfile.Open(path, 10<<20, func(f *os.File) {
+		_ = debug.SetCrashOutput(f, debug.CrashOptions{}) // panics land in the log, not in a missing console
+	})
 	if err != nil {
 		return ""
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
-	_ = debug.SetCrashOutput(f, debug.CrashOptions{}) // panics land in the log, not in a missing console
+	slog.SetDefault(slog.New(slog.NewTextHandler(l, nil)))
 	return path
 }
