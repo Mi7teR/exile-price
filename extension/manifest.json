@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "poe-pricecheck live notice",
+  "version": "0.1.0",
+  "description": "Tells poe-pricecheck when a trade live search tab plays its sound. Reads the tab only; sends nothing to the trade site.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoPhRA5TB+4ke7fV5TWLbmTJAj7DqyGG3JqNSg61pniiTvhD0YJghcj6lh/iSmebbY5QobXA3mp6CtIjuL8rPS8GjYHmQH9qBXPaRvAiPu2Qy17cjJluW5mPl0IgD62DH2+BSTqqbecxwhg6TYtFCVsI0u1ON1CM5W/PcZ5Q6X/IMsXbx6gESp/eZzeVLzt7Km1dAF8iE845hnl9jVPyHYc3HgrAV5bEFQEq8BLqgSMKKk6ZVDcdXVa6VEc+55DERA3Yg77CBJArSVAHirIDdgo50+I2B8SAI7GhhxM5iU53LFym1ZiZTkOvZ1rPM8Y7vzpv0/kAOU/PqVUV3QHl2eQIDAQAB",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": { "service_worker": "sw.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.pathofexile.com/trade/search/*"],
+      "js": ["label.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
