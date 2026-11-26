@@ -221,6 +221,26 @@ var influenceStats = map[string]string{
 
 // mustHave are filters a relaxed search keeps: the item's influences and
 // its eldritch implicits, which a buyer pays for on their own.
+// enchantFilters are the item's enchants (a lab enchant, an anointment) as
+// required stats: they raise the price of whatever item carries them.
+func enchantFilters(it *itemtext.Item, stats *trade.Stats) []trade.StatFilter {
+	var out []trade.StatFilter
+	for _, l := range it.Enchants {
+		st, ok := stats.Resolve("enchant", l.Text)
+		if !ok {
+			continue
+		}
+		f := trade.Exact(st.ID)
+		if f.Value == nil && st.Value > 0 {
+			v := st.Value
+			f.Value = &trade.MinMax{Min: &v}
+		}
+		f.Label = l.Text
+		out = append(out, f)
+	}
+	return out
+}
+
 func mustHave(it *itemtext.Item, stats *trade.Stats, slack float64) []trade.StatFilter {
 	var out []trade.StatFilter
 	for _, inf := range it.Influences {

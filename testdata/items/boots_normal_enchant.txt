@@ -1,0 +1,17 @@
+Item Class: Boots
+Rarity: Normal
+Two-Toned Boots
+--------
+Armour: 109
+Energy Shield: 22
+--------
+Requirements:
+Level: 70
+Str: 62
+Int: 62
+--------
+Item Level: 84
+--------
+10% increased Movement Speed if you haven't been Hit Recently (enchant)
+--------
++12% to Fire and Lightning Resistances (implicit)

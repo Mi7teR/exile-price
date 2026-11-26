@@ -4,12 +4,14 @@ package pricer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +35,18 @@ type Pricer struct {
 	Now        func() time.Time
 
 	ninja atomic.Pointer[ninja.Index]
+
+	mu    sync.Mutex
+	cache map[string]cached // league + search query → its result
+}
+
+// cacheFor is how long a trade search result is reused: the same item, or
+// one that makes the same search, costs no trade request in that time.
+const cacheFor = 15 * time.Minute
+
+type cached struct {
+	r  Result
+	at time.Time
 }
 
 func (p *Pricer) Ninja() *ninja.Index       { return p.ninja.Load() }
@@ -89,7 +103,7 @@ func (p *Pricer) Price(ctx context.Context, text string) (*Result, error) {
 	case h.class == "Maps":
 		return p.mapItem(ctx, h)
 	case h.rarity == "Normal" || h.rarity == "Magic":
-		return p.baseOnly(text, h)
+		return p.baseOnly(ctx, text, h)
 	}
 
 	t0 := time.Now()
@@ -198,6 +212,10 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	if s := socketFilter(&q, it); s != "" {
 		searched = append(searched, s)
 	}
+	ench := enchantFilters(it, p.Stats)
+	for _, f := range ench {
+		searched = append(searched, f.Label)
+	}
 	if weapon {
 		pdps, edps := weaponDPS(text)
 		for _, d := range []struct {
@@ -218,7 +236,7 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	if len(filters) > 0 { // a weapon searched by DPS alone has none
 		q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: filters}}
 	}
-	if must := mustHave(it, p.Stats, p.RollSlack); len(must) > 0 {
+	if must := append(mustHave(it, p.Stats, p.RollSlack), ench...); len(must) > 0 {
 		q.Query.Stats = append(q.Query.Stats, trade.StatGroup{Type: "and", Filters: must})
 	}
 	r, err := p.tradePrice(ctx, q, filters)
@@ -235,19 +253,56 @@ func (p *Pricer) rare(ctx context.Context, it *itemtext.Item, text string) (*Res
 	return r, err
 }
 
-// baseOnly prices a normal or magic item as its crafting base.
-func (p *Pricer) baseOnly(text string, h header) (*Result, error) {
+// baseOnly prices a normal or magic item as its crafting base: on poe.ninja,
+// or on the trade site when it carries an enchant.
+func (p *Pricer) baseOnly(ctx context.Context, text string, h header) (*Result, error) {
 	unsupported := &Unsupported{strings.ToLower(h.rarity) + " " + h.class}
 	it, err := p.Parser.Parse(text)
 	if err != nil {
 		return nil, unsupported
 	}
 	l, ok := p.basePrice(it)
+	if ench := enchantFilters(it, p.Stats); len(ench) > 0 && p.Trade != nil {
+		r, err := p.enchantedBase(ctx, it, ench)
+		if err == nil {
+			if ok {
+				r.Base = l.Chaos
+			}
+			return r, nil
+		}
+		if !ok {
+			return nil, err
+		}
+	}
 	if !ok {
 		return nil, unsupported
 	}
 	return &Result{Item: fmt.Sprintf("%s, ilvl %d", it.BaseName, it.ItemLevel), Source: "poe.ninja",
 		Low: l.Chaos, Mid: l.Chaos, Base: l.Chaos, Note: l.Variant}, nil
+}
+
+// enchantedBase searches the same base with the same enchants and
+// influences, at least as high an item level (poe.ninja's buckets end at 86).
+func (p *Pricer) enchantedBase(ctx context.Context, it *itemtext.Item, ench []trade.StatFilter) (*Result, error) {
+	q := trade.NewQuery()
+	q.Query.Type, _, _ = strings.Cut(it.BaseName, " (") // "Two-Toned Boots (Armour/Energy Shield)"
+	q.SetFilter("type_filters", "rarity", trade.Option{Option: "nonunique"})
+	q.SetFilter("misc_filters", "corrupted", trade.Option{Option: boolOption(it.Corrupted)})
+	if it.ItemLevel >= 82 {
+		ilvl := float64(min(it.ItemLevel, 86))
+		q.SetFilter("misc_filters", "ilvl", trade.MinMax{Min: &ilvl})
+	}
+	must := append(mustHave(it, p.Stats, p.RollSlack), ench...)
+	q.Query.Stats = []trade.StatGroup{{Type: "and", Filters: must}}
+	r, err := p.tradePrice(ctx, q, nil)
+	if err != nil {
+		return nil, err
+	}
+	r.Item = fmt.Sprintf("%s, ilvl %d", it.BaseName, it.ItemLevel)
+	for _, f := range ench {
+		r.Searched = append(r.Searched, f.Label)
+	}
+	return r, nil
 }
 
 // basePrice is the poe.ninja price of the item's base. Fractured,
@@ -262,6 +317,39 @@ func (p *Pricer) basePrice(it *itemtext.Item) (ninja.Line, bool) {
 // tradePrice searches, relaxes once to "any n−1 of the filters" when fewer
 // than 5 lots match, fetches the first lots and cleans out fixers.
 func (p *Pricer) tradePrice(ctx context.Context, q trade.Query, filters []trade.StatFilter) (*Result, error) {
+	b, err := json.Marshal(q)
+	if err != nil {
+		return nil, err
+	}
+	key := p.League + " " + string(b)
+	now := p.Now()
+	p.mu.Lock()
+	c, ok := p.cache[key]
+	p.mu.Unlock()
+	if ok && now.Sub(c.at) < cacheFor {
+		r := c.r
+		r.Timings = []Timing{{"trade cache", 0}}
+		return &r, nil
+	}
+	r, err := p.searchTrade(ctx, q, filters)
+	if err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	for k, c := range p.cache {
+		if now.Sub(c.at) >= cacheFor {
+			delete(p.cache, k)
+		}
+	}
+	if p.cache == nil {
+		p.cache = map[string]cached{}
+	}
+	p.cache[key] = cached{*r, now}
+	p.mu.Unlock()
+	return r, nil
+}
+
+func (p *Pricer) searchTrade(ctx context.Context, q trade.Query, filters []trade.StatFilter) (*Result, error) {
 	r := &Result{Source: "trade"}
 	t := time.Now()
 	sr, err := p.Trade.Search(ctx, p.League, q)

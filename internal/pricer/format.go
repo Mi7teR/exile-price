@@ -26,7 +26,7 @@ func (r *Result) Line(divine float64) string {
 		base += i18n.Tf(" · poe.ninja ~%s", Money(r.Avg, divine))
 	}
 	if len(r.Kept) == 0 {
-		return i18n.Tf("no listings · %d on the site", r.Total) + base
+		return i18n.Tf("no listings · %d on the site", r.Total) + base + r.searched()
 	}
 	n := len(r.Kept)
 	s := "~" + MoneyRange(r.Low, r.Mid, divine) + " · " + i18n.Count(n, "listing")
