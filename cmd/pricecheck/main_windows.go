@@ -43,7 +43,7 @@ import (
 	"github.com/Mi7teR/exile-price/internal/ui"
 )
 
-var version = "0.1.17"
+var version = "0.1.18"
 
 const (
 	className = "exile-price-listener"
