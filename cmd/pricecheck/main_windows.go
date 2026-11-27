@@ -116,8 +116,9 @@ type overlay struct {
 	notice *notice // "new listing" in the corner, from the browser extension
 
 	store     atomic.Pointer[build.Store] // nil until the engine is ready
-	seq       atomic.Uint64               // one per priced item; a late build change for an older one is dropped
+	seq       atomic.Uint64               // one per line; a late build change for an older line is dropped
 	buildGone atomic.Bool                 // "build file not found" was shown
+	buildNote atomic.Pointer[string]      // a build problem not shown yet
 
 	last struct { // the last priced item; a repeat within a minute reuses it
 		p    *pricer.Pricer
@@ -243,14 +244,17 @@ func (a *overlay) run() {
 	}
 	a.show(hello, ui.Info, 8*time.Second)
 	go func() {
-		err := <-buildErr
-		if err == nil {
+		if <-buildErr == nil {
 			return
 		}
 		seq := a.seq.Load()
 		time.Sleep(8 * time.Second)
-		if a.seq.Load() == seq { // no item was priced meanwhile: the line is still ours
-			a.show(buildErrText(err), ui.Error, 8*time.Second)
+		if a.seq.Load() != seq {
+			return // a newer line is up; compare puts the note under the next price
+		}
+		if note := a.buildNote.Swap(nil); note != nil {
+			a.show(*note, ui.Error, 8*time.Second)
+			a.buildGone.Store(*note == i18n.T("build file not found"))
 		}
 	}()
 
@@ -297,9 +301,8 @@ func (a *overlay) price(text string) {
 	if p == nil {
 		return
 	}
+	n := a.newLine()
 	a.mu.Lock()
-	n := a.seq.Add(1)
-	a.view.SetSub(nil)
 	cachedSub := a.lastSub
 	a.mu.Unlock()
 	hideAfter := a.config().HideAfter
@@ -307,11 +310,14 @@ func (a *overlay) price(text string) {
 		if cachedSub.text == text {
 			a.view.SetSub(cachedSub.spans)
 		}
-		a.show(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
+		a.put(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
+		if cachedSub.text != text {
+			go a.compare(n, text) // the first compare had not finished
+		}
 		slog.Info("price cached", "line", a.last.line)
 		return
 	}
-	a.show(i18n.T("pricing…"), ui.Pending, 20*time.Second)
+	a.put(i18n.T("pricing…"), ui.Pending, 20*time.Second)
 	go a.compare(n, text) // after show: the line is up when the change arrives
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -322,17 +328,17 @@ func (a *overlay) price(text string) {
 	var rl *trade.RateLimitError
 	switch {
 	case errors.As(err, &u):
-		a.show(u.Error(), ui.Info, hideAfter)
+		a.put(u.Error(), ui.Info, hideAfter)
 		slog.Info("unsupported", "what", u.What, "text", text)
 	case errors.As(err, &rl):
-		a.show(i18n.Tf("trade request limit · try again in %d s", int(rl.Wait.Seconds()+0.999)), ui.Error, hideAfter)
+		a.put(i18n.Tf("trade request limit · try again in %d s", int(rl.Wait.Seconds()+0.999)), ui.Error, hideAfter)
 		slog.Warn("rate limit", "policy", rl.Policy, "wait", rl.Wait, "took", took)
 	case err != nil:
-		a.show(i18n.Tf("error: %s", err), ui.Error, hideAfter+3*time.Second)
+		a.put(i18n.Tf("error: %s", err), ui.Error, hideAfter+3*time.Second)
 		slog.Error("price", "err", err, "took", took, "text", text)
 	default:
 		line := r.Line(p.Divine())
-		a.show(line, ui.Price, hideAfter)
+		a.put(line, ui.Price, hideAfter)
 		a.last.p, a.last.text, a.last.line, a.last.at = p, text, line, time.Now()
 		if r.Link != "" {
 			a.link.Store(&r.Link)
@@ -358,7 +364,10 @@ func (a *overlay) loadBuild() error {
 	cfg := a.config()
 	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
 	logBuild(cfg.BuildSource, b, err)
-	a.buildGone.Store(errors.Is(err, fs.ErrNotExist)) // said once, after the greeting
+	if err != nil {
+		note := buildErrText(err) // shown once: after the greeting or under the next price
+		a.buildNote.Store(&note)
+	}
 	return err
 }
 
@@ -382,13 +391,24 @@ func (a *overlay) compare(n uint64, text string) {
 		return
 	}
 	b, err := s.Current()
-	if err != nil {
-		slog.Warn("build", "err", err)
-		if errors.Is(err, fs.ErrNotExist) && a.buildGone.CompareAndSwap(false, true) {
-			a.putSub(n, "", []ui.Span{{Text: i18n.T("build file not found"), Kind: ui.Worse}})
-		}
-	} else {
+	gone := errors.Is(err, fs.ErrNotExist)
+	switch {
+	case err == nil:
 		a.buildGone.Store(false)
+		a.buildNote.Store(nil) // the build loads now
+	case gone && !a.buildGone.Load():
+		note := i18n.T("build file not found")
+		a.buildNote.Store(&note)
+		fallthrough
+	default:
+		slog.Warn("build", "err", err)
+	}
+	if note := a.buildNote.Swap(nil); note != nil {
+		if a.putSub(n, "", []ui.Span{{Text: *note, Kind: ui.Worse}}) {
+			a.buildGone.Store(gone)
+		} else {
+			a.buildNote.CompareAndSwap(nil, note) // not seen: try again under the next line
+		}
 	}
 	if b == nil {
 		return
@@ -438,7 +458,7 @@ func (a *overlay) loadClipboardBuild() {
 	text, err := win.ReadClipboard()
 	if err != nil {
 		slog.Warn("build clipboard", "err", err)
-		a.show(i18n.T("no PoB code on the clipboard"), ui.Error, 6*time.Second)
+		a.show(i18n.Tf("cannot read the clipboard: %s", err), ui.Error, 6*time.Second)
 		return
 	}
 	b, err := s.SaveClipboard(text)
@@ -449,11 +469,12 @@ func (a *overlay) loadClipboardBuild() {
 	}
 	slog.Info("build loaded", "source", config.SourceClipboard, "class", b.Class, "level", b.Level, "len", len(text))
 	a.forgetSub()
+	a.buildNote.Store(nil)
 	a.cfgMu.Lock()
 	a.cfg.BuildSource = config.SourceClipboard
-	cfg := a.cfg
+	err = config.Save(a.dir, a.cfg) // under cfgMu: a later save never writes an older config
 	a.cfgMu.Unlock()
-	if err := config.Save(a.dir, cfg); err != nil {
+	if err != nil {
 		slog.Error("settings save", "err", err)
 		a.show(i18n.Tf("cannot save config.toml: %s", err), ui.Error, 8*time.Second)
 		return
@@ -461,11 +482,22 @@ func (a *overlay) loadClipboardBuild() {
 	a.show(i18n.Tf("build loaded: %s", b.Summary()), ui.Info, 6*time.Second)
 }
 
-// forgetSub drops the kept build change: the build is another one now.
+// forgetSub drops the kept build change and any compare still running: the
+// build is another one now.
 func (a *overlay) forgetSub() {
 	a.mu.Lock()
 	a.lastSub.text, a.lastSub.spans = "", nil
 	a.mu.Unlock()
+	a.newLine()
+}
+
+// newLine starts a line without a second line: a compare still running for
+// the previous one is dropped. It returns the new line's number.
+func (a *overlay) newLine() uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.view.SetSub(nil)
+	return a.seq.Add(1)
 }
 
 // openSearch opens the last trade search in the browser, to see the
@@ -480,9 +512,16 @@ func (a *overlay) openSearch() {
 	slog.Info("search opened")
 }
 
-// show puts text at the cursor for d without taking focus from the game.
-// While the line is up it stays where it first appeared.
+// show puts a message at the cursor for d without taking focus from the
+// game, with no second line. While the line is up it stays where it first
+// appeared.
 func (a *overlay) show(text string, kind ui.Kind, d time.Duration) {
+	a.newLine()
+	a.put(text, kind, d)
+}
+
+// put is show for the lines of a price: the build change under them stays.
+func (a *overlay) put(text string, kind ui.Kind, d time.Duration) {
 	a.view.Set(text, kind)
 	a.win.Invalidate()
 	before, title := win.Foreground()
@@ -508,6 +547,7 @@ func (a *overlay) hide() {
 	a.mu.Lock()
 	shown := !a.hideAt.IsZero()
 	a.hideAt = time.Time{}
+	a.view.SetSub(nil)
 	a.mu.Unlock()
 	if shown {
 		win.Hide(a.hwnd)

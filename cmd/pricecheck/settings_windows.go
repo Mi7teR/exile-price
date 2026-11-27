@@ -77,13 +77,17 @@ func (a *overlay) applySettings(league, sess string, c ui.BuildChoice) {
 	a.cfg = withBuild(a.cfg, c, def)
 	a.cfg.League, a.cfg.POESESSID = league, sess
 	cfg := a.cfg
-	a.cfgMu.Unlock()
 	prices := old.League != league || old.POESESSID != sess
 	newBuild := old.BuildSource != cfg.BuildSource || old.PoBBuild != cfg.PoBBuild
+	var err error
+	if prices || newBuild || old.PoBDir != cfg.PoBDir {
+		err = config.Save(a.dir, cfg) // under cfgMu: a later save never writes an older config
+	}
+	a.cfgMu.Unlock()
 	if !prices && !newBuild && old.PoBDir == cfg.PoBDir {
 		return
 	}
-	if err := config.Save(a.dir, cfg); err != nil {
+	if err != nil {
 		slog.Error("settings save", "err", err)
 		a.show(i18n.Tf("cannot save config.toml: %s", err), ui.Error, 8*time.Second)
 		return
@@ -111,6 +115,7 @@ func (a *overlay) useBuild(cfg config.Config) {
 		return // the engine is still starting; it loads the config's build itself
 	}
 	a.forgetSub()
+	a.buildNote.Store(nil) // the line below says how the new build went
 	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
 	logBuild(cfg.BuildSource, b, err)
 	a.buildGone.Store(errors.Is(err, fs.ErrNotExist)) // the line below says it
