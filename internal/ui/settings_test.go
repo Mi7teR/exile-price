@@ -47,7 +47,41 @@ func TestSettingsLayoutRuns(t *testing.T) {
 	s := NewSettings(leagues, "Covens", Auto, "")
 	var ops op.Ops
 	gtx := layout.Context{Ops: &ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Exact(image.Pt(460, 560))}
+	s.WithBuilds(BuildChoice{Dir: "D", Source: "pob", Path: "D/gone.xml"}, true, fakeList)
 	if act := s.Layout(gtx); act != None {
 		t.Errorf("no click, got action %v", act)
+	}
+}
+
+func fakeList(dir string) []BuildEntry {
+	return []BuildEntry{{Name: "a", Path: dir + "/a.xml"}, {Name: "b", Path: dir + "/b.xml"}}
+}
+
+func TestSettingsBuildChoice(t *testing.T) {
+	s := NewSettings(leagues, "Covens", Auto, "").WithBuilds(BuildChoice{Dir: "D", Source: "pob", Path: "D/a.xml"}, true, fakeList)
+	if got := s.Build(); got != (BuildChoice{Dir: "D", Source: "pob", Path: "D/a.xml"}) {
+		t.Errorf("Build() = %+v", got)
+	}
+	s.build.Value = noBuildKey
+	if got := s.Build(); got.Source != "" {
+		t.Errorf("do not compare: Source = %q", got.Source)
+	}
+	s.build.Value = clipboardKey
+	if got := s.Build(); got.Source != "clipboard" {
+		t.Errorf("clipboard: Source = %q", got.Source)
+	}
+}
+
+func TestSettingsBuildRelistsOnDirEdit(t *testing.T) {
+	var dirs []string
+	list := func(dir string) []BuildEntry { dirs = append(dirs, dir); return nil }
+	s := NewSettings(leagues, "Covens", Auto, "").WithBuilds(BuildChoice{Dir: "D"}, false, list)
+	var ops op.Ops
+	gtx := layout.Context{Ops: &ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Exact(image.Pt(460, 760))}
+	s.Layout(gtx)
+	s.dir.SetText("E")
+	s.Layout(gtx)
+	if len(dirs) != 2 || dirs[0] != "D" || dirs[1] != "E" {
+		t.Errorf("list calls: %v", dirs)
 	}
 }

@@ -37,6 +37,81 @@ type Settings struct {
 	show         widget.Bool
 	save, cancel widget.Clickable
 	list         widget.List
+
+	// PoB build section; empty until WithBuilds.
+	dir        widget.Editor
+	build      widget.Enum
+	builds     []BuildEntry
+	pinned     *BuildEntry // the configured file, shown even if the folder lacks it
+	lastDir    string
+	hasClip    bool
+	listBuilds func(dir string) []BuildEntry
+}
+
+// BuildEntry is a PoB build file offered in the form.
+type BuildEntry struct{ Name, Path string }
+
+// BuildChoice is the build to compare with; Source is "pob", "clipboard" or "".
+type BuildChoice struct{ Dir, Source, Path string }
+
+const (
+	noBuildKey   = "\x00none"
+	clipboardKey = "\x00clipboard"
+)
+
+// WithBuilds adds the PoB build section on the current choice. list returns
+// the builds in a folder and is called again when the folder text changes.
+func (s *Settings) WithBuilds(c BuildChoice, hasClipboard bool, list func(dir string) []BuildEntry) *Settings {
+	s.hasClip, s.listBuilds = hasClipboard, list
+	s.dir.SingleLine = true
+	s.dir.SetText(c.Dir)
+	s.build.Value = noBuildKey
+	switch {
+	case c.Source == "clipboard" && hasClipboard:
+		s.build.Value = clipboardKey
+	case c.Source == "pob" && c.Path != "":
+		s.build.Value = c.Path
+		s.pinned = &BuildEntry{Name: baseName(c.Path), Path: c.Path}
+	}
+	s.relist()
+	return s
+}
+
+// Build is the build choice the form holds now.
+func (s *Settings) Build() BuildChoice {
+	c := BuildChoice{Dir: strings.TrimSpace(s.dir.Text())}
+	switch v := s.build.Value; v {
+	case noBuildKey, "":
+	case clipboardKey:
+		c.Source = "clipboard"
+	default:
+		c.Source, c.Path = "pob", v
+	}
+	return c
+}
+
+func (s *Settings) relist() {
+	dir := strings.TrimSpace(s.dir.Text())
+	s.lastDir = dir
+	s.builds = nil
+	if s.listBuilds != nil {
+		s.builds = s.listBuilds(dir)
+	}
+	if s.pinned != nil {
+		for _, b := range s.builds {
+			if b.Path == s.pinned.Path {
+				return
+			}
+		}
+		s.builds = append([]BuildEntry{*s.pinned}, s.builds...)
+	}
+}
+
+func baseName(p string) string {
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
+		p = p[i+1:]
+	}
+	return strings.TrimSuffix(p, ".xml")
 }
 
 const autoKey = "\x00auto"
@@ -100,6 +175,10 @@ var (
 // Layout draws the form and reports Saved or Cancelled once a button is pressed.
 func (s *Settings) Layout(gtx layout.Context) Action {
 	s.league.Update(gtx)
+	s.build.Update(gtx)
+	if s.listBuilds != nil && strings.TrimSpace(s.dir.Text()) != s.lastDir {
+		s.relist()
+	}
 	if s.show.Update(gtx) {
 		s.sess.Mask = '•'
 		if s.show.Value {
@@ -154,6 +233,28 @@ func (s *Settings) Layout(gtx layout.Context) Action {
 	)
 	if problem != "" {
 		rows = append(rows, small(problem, bad))
+	}
+	if s.listBuilds != nil {
+		rows = append(rows,
+			gap,
+			heading(i18n.T("PoB build")),
+			small(i18n.T("Compare items with this build. Files are re-read after you save in PoB."), muted),
+			layout.Spacer{Height: unit.Dp(6)}.Layout,
+			small(i18n.T("PoB builds folder"), muted),
+			func(gtx layout.Context) layout.Dimensions {
+				e := material.Editor(th, &s.dir, "")
+				return widget.Border{Color: muted, CornerRadius: unit.Dp(4), Width: unit.Dp(1)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(unit.Dp(8)).Layout(gtx, e.Layout)
+				})
+			},
+			material.RadioButton(th, &s.build, noBuildKey, i18n.T("do not compare")).Layout,
+		)
+		if s.hasClip {
+			rows = append(rows, material.RadioButton(th, &s.build, clipboardKey, i18n.T("code from the clipboard (build.txt)")).Layout)
+		}
+		for _, b := range s.builds {
+			rows = append(rows, material.RadioButton(th, &s.build, b.Path, b.Name).Layout)
+		}
 	}
 	rows = append(rows, gap, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{Spacing: layout.SpaceStart}.Layout(gtx,

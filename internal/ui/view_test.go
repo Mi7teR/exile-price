@@ -34,3 +34,20 @@ func TestLayoutSizesToText(t *testing.T) {
 		t.Errorf("one line each: heights %d vs %d", short.Y, long.Y)
 	}
 }
+
+func TestLayoutTwoLines(t *testing.T) {
+	v := New()
+	one := size(v, "~4.0c")
+	v.SetSub([]Span{{Text: "instead of Ring 2: ", Kind: Muted}, {Text: "DPS -13.9%", Kind: Worse}, {Text: " · Life +49", Kind: Better}})
+	two := size(v, "~4.0c")
+	if two.Y <= one.Y {
+		t.Errorf("second line must add height: %d vs %d", two.Y, one.Y)
+	}
+	if two.X <= one.X {
+		t.Errorf("width must be the wider line: %d vs %d", two.X, one.X)
+	}
+	v.SetSub(nil)
+	if back := size(v, "~4.0c"); back != one {
+		t.Errorf("SetSub(nil): got %v, want %v", back, one)
+	}
+}

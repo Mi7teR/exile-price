@@ -57,4 +57,11 @@ var ru = map[string]string{
 	"instead of %s: ":    "вместо %s: ",
 	"no change":          "без изменений",
 	" · not all counted": " · не всё учтено",
+
+	// PoB build settings
+	"PoB build":                           "Билд PoB",
+	"PoB builds folder":                   "Папка билдов PoB",
+	"do not compare":                      "не сравнивать",
+	"code from the clipboard (build.txt)": "код из буфера (build.txt)",
+	"Compare items with this build. Files are re-read after you save in PoB.": "Сравнивать предметы с этим билдом. Файлы перечитываются после сохранения в PoB.",
 }
