@@ -90,8 +90,24 @@ func (v *View) Layout(gtx layout.Context) image.Point {
 			return l.Layout(gtx)
 		})
 	}
+	first := line(text, kind)
+	if kind == Pending {
+		first = layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					// A spinner while waiting; it redraws the window until the kind changes.
+					gtx.Constraints = layout.Exact(image.Pt(gtx.Dp(12), gtx.Dp(12)))
+					l := material.Loader(v.th)
+					l.Color = colors[Pending]
+					return l.Layout(gtx)
+				}),
+				layout.Rigid(layout.Spacer{Width: unit.Dp(6)}.Layout),
+				line(text, kind),
+			)
+		})
+	}
 	dims := layout.UniformInset(unit.Dp(8)).Layout(measure, func(gtx layout.Context) layout.Dimensions {
-		children := []layout.FlexChild{line(text, kind)}
+		children := []layout.FlexChild{first}
 		if len(sub) > 0 {
 			children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				spans := make([]layout.FlexChild, len(sub))

@@ -322,8 +322,11 @@ func (a *overlay) price(text string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	st := &stages{show: func(s string) { a.stage(n, s) }}
+	ctx = trade.WithProgress(ctx, st.report)
 	t0 := time.Now()
 	r, err := p.Price(ctx, text)
+	st.stop()
 	took := time.Since(t0)
 	var u *pricer.Unsupported
 	var rl *trade.RateLimitError
@@ -535,6 +538,18 @@ func (a *overlay) openSearch() {
 	}
 	win.OpenFile(*l)
 	slog.Info("search opened")
+}
+
+// stage updates the pending line of item n with the step it waits for. A
+// hidden line stays hidden: the price itself brings it back.
+func (a *overlay) stage(n uint64, text string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.seq.Load() != n || a.hideAt.IsZero() {
+		return
+	}
+	a.view.Set(text, ui.Pending)
+	a.win.Invalidate()
 }
 
 // show puts a message at the cursor for d without taking focus from the

@@ -51,3 +51,31 @@ func TestFetchItemOnlineShapes(t *testing.T) {
 		}
 	}
 }
+
+func TestDoReportsProgress(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c := &Client{HTTP: srv.Client(), blocked: map[string]time.Time{"fetch": time.Now().Add(100 * time.Millisecond)}}
+
+	type event struct {
+		step string
+		wait bool
+	}
+	var got []event
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	ctx = WithProgress(ctx, func(step string, wait time.Duration) { got = append(got, event{step, wait > 0}) })
+	if err := c.do(ctx, "fetch", http.MethodGet, srv.URL, nil, &struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+	want := []event{{"fetch", true}, {"fetch", false}}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("progress = %v, want %v", got, want)
+	}
+	// No hook: nothing to call.
+	if err := c.do(context.Background(), "search", http.MethodGet, srv.URL, nil, &struct{}{}); err != nil {
+		t.Fatal(err)
+	}
+}

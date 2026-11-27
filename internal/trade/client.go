@@ -105,6 +105,24 @@ func SearchURL(league, queryID string) string {
 	return "https://www.pathofexile.com/trade/search/" + url.PathEscape(league) + "/" + queryID
 }
 
+// Progress is told each step of a request: "search" or "fetch", with the
+// rate-limit wait before it, or 0 when the request goes out. Fetches run in
+// parallel, so it may be called from several goroutines at once.
+type Progress func(step string, wait time.Duration)
+
+type progressKey struct{}
+
+// WithProgress makes the client's requests under ctx report to f.
+func WithProgress(ctx context.Context, f Progress) context.Context {
+	return context.WithValue(ctx, progressKey{}, f)
+}
+
+func report(ctx context.Context, step string, wait time.Duration) {
+	if f, _ := ctx.Value(progressKey{}).(Progress); f != nil {
+		f(step, wait)
+	}
+}
+
 func (c *Client) do(ctx context.Context, policy, method, u string, body []byte, out any) error {
 	if wait := c.waitFor(policy); wait > 0 {
 		// Wait out a short block if the caller's deadline allows it;
@@ -112,6 +130,7 @@ func (c *Client) do(ctx context.Context, policy, method, u string, body []byte, 
 		if dl, ok := ctx.Deadline(); !ok || time.Until(dl) < wait {
 			return &RateLimitError{Policy: policy, Wait: wait}
 		}
+		report(ctx, policy, wait)
 		t := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
@@ -124,6 +143,7 @@ func (c *Client) do(ctx context.Context, policy, method, u string, body []byte, 
 	if err != nil {
 		return err
 	}
+	report(ctx, policy, 0)
 	req.Header.Set("User-Agent", c.UserAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

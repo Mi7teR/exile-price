@@ -51,3 +51,22 @@ func TestLayoutTwoLines(t *testing.T) {
 		t.Errorf("SetSub(nil): got %v, want %v", back, one)
 	}
 }
+
+func TestLayoutPendingHasSpinner(t *testing.T) {
+	v := New()
+	plain := size(v, "ищу на трейде…")
+	v.Set("ищу на трейде…", Pending)
+	var ops op.Ops
+	gtx := layout.Context{
+		Ops:         &ops,
+		Metric:      unit.Metric{PxPerDp: 1.5, PxPerSp: 1.5},
+		Constraints: layout.Exact(image.Pt(420, 54)),
+	}
+	pending := v.Layout(gtx)
+	if pending.X <= plain.X {
+		t.Errorf("spinner must add width: %d vs %d", pending.X, plain.X)
+	}
+	if pending.Y != plain.Y {
+		t.Errorf("spinner must not change the height: %d vs %d", pending.Y, plain.Y)
+	}
+}
