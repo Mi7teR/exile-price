@@ -17,11 +17,27 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 
 **Live search notices (optional):** a trade live search only beeps in the browser. The extension in `extension/` makes exile-price show a card in the top right corner over the game, with a sound: the search's name (the search field, else the item or category from the search link) and its enabled stat filters. Cards stack, newest on top, for 20 s; another listing from the same tab moves its card up and counts it. A click on a card brings that tab to the front in the browser that sent it. It only reads the tab: the new-listing counter in the live search tab's title or that the tab plays its sound, and the text of the item search field; it sends nothing to the trade site and changes nothing on the page. Install: download the source zip from Releases, unpack, open `chrome://extensions`, turn on "Developer mode", "Load unpacked" → the `extension` folder. exile-price listens on `127.0.0.1:47317` for this extension only.
 
+**Compare with your build (optional):** under the price, exile-price shows how your Path of Building build changes if you equip the item.
+
+1. Save your build in Path of Building (Ctrl+S).
+2. Tray icon → "Settings…" → the "PoB build" section: pick the build (the PoB builds folder is found by itself; for a portable PoB, point it at its `Builds` folder) → "Save".
+3. In the game, press **Ctrl+Alt+C** on a ring, armour piece, belt, amulet or weapon. A second line appears under the price, e.g. `instead of Ring 2: DPS +3.1% · Life +68 · Fire +12% · EHP +4%`: green is better, red is worse.
+4. Changed the build in PoB and saved? The next Ctrl+Alt+C picks it up.
+5. A build that is not in your PoB (pobb.in, a friend): copy its PoB code, then tray icon → "Load build from clipboard".
+
+Notes:
+- The item is compared against the build's active item set and active weapon set. A ring or a one-handed weapon is tried in both slots and the better result is shown (more DPS, then more EHP). Jewels, flasks and tinctures are not compared.
+- DPS is Full DPS when the build has skills in Full DPS, otherwise the main skill's DPS. Resistances are capped values.
+- "not all counted" means the engine did not understand some of the item's mods.
+- Timeless jewels are not applied without PoB's timeless data; the build is still computed.
+- No network request is made for the build.
+- A pasted code is kept in `build.txt`. The settings are the `build_source` ("pob" or "clipboard"), `pob_build` and `pob_dir` keys in `config.toml`.
+
 **League:** "Авто" picks the first temporary softcore league in GGG's trade list; pick another one (Hardcore, Ruthless, Standard) in the settings. **POESESSID** is optional: the trade site answers without a login today. It is stored in `config.toml` and never written to the log.
 
 Works over the game in windowed and windowed fullscreen modes; over exclusive fullscreen it is not guaranteed.
 
-Files live in `%APPDATA%\exile-price\`: `config.toml` (written with defaults on first run), `pricecheck.log` (with the older `pricecheck.log.1`, at most 10 MB together), `cache\`. Before the rename the app was poe-pricecheck: on the first run exile-price moves `%APPDATA%\poe-pricecheck\` to the new folder, settings included.
+Files live in `%APPDATA%\exile-price\`: `config.toml` (written with defaults on first run), `build.txt` (the pasted build code), `pricecheck.log` (with the older `pricecheck.log.1`, at most 10 MB together), `cache\`. Before the rename the app was poe-pricecheck: on the first run exile-price moves `%APPDATA%\poe-pricecheck\` to the new folder, settings included.
 
 ## Develop (any OS)
 
@@ -37,6 +53,10 @@ On macOS, `go run ./cmd/notify-dev` shows the same cards in a plain window, to t
 
 ```bash
 go run ./cmd/pricecheck-cli -v testdata/items/boots_rare.txt
+```
+
+```bash
+go run ./cmd/pricecheck-cli -build testdata/builds/assassin.code testdata/items/real_ring_rare_crafted.txt
 ```
 
 ```bash
