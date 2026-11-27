@@ -73,3 +73,9 @@ func TestClipboardErrText(t *testing.T) {
 		t.Errorf("xml: %q", got)
 	}
 }
+
+func TestEngineErrText(t *testing.T) {
+	if got := engineErrText(errors.New("no data")); got != "build comparison is unavailable: no data" {
+		t.Errorf("got %q", got)
+	}
+}

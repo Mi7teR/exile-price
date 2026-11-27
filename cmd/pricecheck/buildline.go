@@ -61,6 +61,11 @@ func buildErrText(err error) string {
 	return i18n.Tf("build does not compute: %s", err)
 }
 
+// engineErrText is the overlay line when the build engine failed to start.
+func engineErrText(err error) string {
+	return i18n.Tf("build comparison is unavailable: %s", err)
+}
+
 // clipboardErrText is the overlay line for a clipboard text that did not
 // load as a build: not a PoB code at all, or a code the engine rejects.
 func clipboardErrText(text string, err error) string {

@@ -233,8 +233,13 @@ func SingleInstance(name string) (bool, error) {
 }
 
 // ReadClipboard returns the text on the clipboard. It may be called from any
-// thread: the clipboard is opened without an owner window.
-func ReadClipboard() (string, error) { return readClipboard(0) }
+// goroutine: the clipboard is opened without an owner window, and the
+// goroutine stays on one OS thread from OpenClipboard to CloseClipboard.
+func ReadClipboard() (string, error) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	return readClipboard(0)
+}
 
 // readClipboard reads CF_UNICODETEXT, retrying while another app holds the
 // clipboard (the game may still be writing it).

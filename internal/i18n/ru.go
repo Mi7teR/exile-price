@@ -54,16 +54,18 @@ var ru = map[string]string{
 	"POESESSID is 32 characters 0–9 and a–f": "POESESSID — это 32 символа 0–9 и a–f",
 
 	// build comparison
-	"instead of %s: ":               "вместо %s: ",
-	"into empty %s: ":               "в пустой %s: ",
-	"no change":                     "без изменений",
-	" · not all counted":            " · не всё учтено",
-	"Load build from clipboard":     "Загрузить билд из буфера",
-	"build loaded: %s":              "билд загружен: %s",
-	"no PoB code on the clipboard":  "в буфере не PoB-код",
-	"build does not compute: %s":    "билд не считается: %s",
-	"build file not found":          "файл билда не найден",
-	"cannot read the clipboard: %s": "не удалось прочитать буфер: %s",
+	"instead of %s: ":                     "вместо %s: ",
+	"into empty %s: ":                     "в пустой %s: ",
+	"no change":                           "без изменений",
+	" · not all counted":                  " · не всё учтено",
+	"Load build from clipboard":           "Загрузить билд из буфера",
+	"build loaded: %s":                    "билд загружен: %s",
+	"no PoB code on the clipboard":        "в буфере не PoB-код",
+	"build does not compute: %s":          "билд не считается: %s",
+	"build file not found":                "файл билда не найден",
+	"build comparison is unavailable: %s": "сравнение с билдом недоступно: %s",
+	"the engine is still loading":         "движок ещё загружается",
+	"cannot read the clipboard: %s":       "не удалось прочитать буфер: %s",
 
 	// PoB build settings
 	"PoB build":                           "Билд PoB",
