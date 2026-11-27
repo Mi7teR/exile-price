@@ -90,20 +90,20 @@ func run(league string, verbose bool, buildFile, file string) error {
 	fmt.Println(r.Line(divine))
 	printDelta(delta)
 	if verbose {
-		fmt.Printf("\n%s · лига %s · всего на сайте %d\n", r.Item, p.League, r.Total)
+		fmt.Printf("\n%s · league %s · %d on the site\n", r.Item, p.League, r.Total)
 		if r.Note != "" {
 			fmt.Println(r.Note)
 		}
 		for _, l := range r.Kept {
-			fmt.Printf("  %-10s %-28s %s назад\n", pricer.Money(l.Chaos, divine), l.Account, ago(l.Indexed))
+			fmt.Printf("  %-10s %-28s %s ago\n", pricer.Money(l.Chaos, divine), l.Account, ago(l.Indexed))
 		}
 		for _, d := range r.Dropped {
-			fmt.Printf("  ✕ %-8s %-28s %s назад — %s\n", pricer.Money(d.Lot.Chaos, divine), d.Lot.Account, ago(d.Lot.Indexed), d.Reason)
+			fmt.Printf("  ✕ %-8s %-28s %s ago — %s\n", pricer.Money(d.Lot.Chaos, divine), d.Lot.Account, ago(d.Lot.Indexed), d.Reason)
 		}
 		if r.Link != "" {
-			fmt.Println("поиск:", r.Link)
+			fmt.Println("search:", r.Link)
 		}
-		fmt.Printf("время: старт %s, прайсчек %s", startup.Round(time.Millisecond), took.Round(time.Millisecond))
+		fmt.Printf("time: start %s, price check %s", startup.Round(time.Millisecond), took.Round(time.Millisecond))
 		for _, t := range r.Timings {
 			fmt.Printf(" · %s %s", t.Step, t.Took.Round(time.Millisecond))
 		}
@@ -153,9 +153,9 @@ func buildDelta(buildFile, itemText string, verbose bool) (string, error) {
 func ago(t time.Time) string {
 	d := time.Since(t)
 	if d >= 24*time.Hour {
-		return fmt.Sprintf("%dд", int(d.Hours()/24))
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
-	return fmt.Sprintf("%dч", int(d.Hours()))
+	return fmt.Sprintf("%dh", int(d.Hours()))
 }
 
 func readInput(file string) (string, error) {

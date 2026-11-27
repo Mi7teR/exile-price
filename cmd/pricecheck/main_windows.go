@@ -52,7 +52,6 @@ const (
 )
 
 func main() {
-	i18n.Set(i18n.FromSystem())
 	win.SetDPIAware()
 	if first, _ := win.SingleInstance(mutexName); !first {
 		win.AskRunningToQuit(className)
@@ -65,6 +64,7 @@ func main() {
 	}
 	logPath := setupLog(dir)
 	cfg, cfgErr := config.Load(dir)
+	i18n.Set(i18n.Parse(cfg.Language))
 	slog.Info("start", "version", version, "dir", dir, "config_error", cfgErr, "poesessid_set", cfg.POESESSID != "")
 
 	before, _ := win.Foreground() // usually Explorer, where the .exe was started

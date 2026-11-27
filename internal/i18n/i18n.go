@@ -2,7 +2,10 @@
 // strings are the keys; a missing Russian entry falls back to English.
 package i18n
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Lang int
 
@@ -57,11 +60,9 @@ func ruPlural(n int, f [3]string) string {
 	return f[2]
 }
 
-// fromPrimary maps a Windows primary language id: Russian (0x19),
-// Belarusian (0x23) and Kazakh (0x3f) get Russian.
-func fromPrimary(id uint16) Lang {
-	switch id {
-	case 0x19, 0x23, 0x3f:
+// Parse reads the language setting: "ru" is Russian, anything else English.
+func Parse(code string) Lang {
+	if strings.EqualFold(code, "ru") {
 		return RU
 	}
 	return EN

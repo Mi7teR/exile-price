@@ -25,7 +25,7 @@ func TestT(t *testing.T) {
 	if Tf("done · league %s", "Covens") != "готово · лига Covens" {
 		t.Error("Tf")
 	}
-	if fromPrimary(0x09) != EN || fromPrimary(0x19) != RU {
-		t.Error("fromPrimary")
+	if Parse("ru") != RU || Parse("RU") != RU || Parse("en") != EN || Parse("") != EN || Parse("de") != EN {
+		t.Error("Parse")
 	}
 }

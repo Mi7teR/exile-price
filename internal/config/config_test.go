@@ -143,3 +143,16 @@ func TestLoadRaisesOldDefaultHideAfter(t *testing.T) {
 		t.Errorf("own value changed: %v", cfg.HideAfter)
 	}
 }
+
+func TestLanguageDefaultsToEnglish(t *testing.T) {
+	dir := t.TempDir()
+	if cfg, err := Load(dir); err != nil || cfg.Language != "en" {
+		t.Fatalf("default language = %q, %v", cfg.Language, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("language = \"ru\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := Load(dir); cfg.Language != "ru" {
+		t.Errorf("language = %q, want ru", cfg.Language)
+	}
+}

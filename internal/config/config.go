@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	Language  string        `toml:"language"`   // "en" or "ru"
 	League    string        `toml:"league"`     // empty = current temporary softcore league
 	POESESSID string        `toml:"poesessid"`  // optional pathofexile.com session; never logged
 	HideAfter time.Duration `toml:"hide_after"` // the answer line hides after this
@@ -40,6 +41,7 @@ type Fixers struct {
 
 func Default() Config {
 	return Config{
+		Language:  "en",
 		HideAfter: 30 * time.Second,
 		RollSlack: 0.15,
 		Fixers:    Fixers{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReferenceChaos: 10},
@@ -47,6 +49,7 @@ func Default() Config {
 }
 
 const header = `# exile-price settings. Delete a line to get its default back.
+# language     → "en" (English) or "ru" (Russian); takes effect on restart.
 # league = ""  → current temporary softcore league; set e.g. "Hardcore Covens" to override.
 # poesessid    → optional, the POESESSID cookie of pathofexile.com; keep this file private.
 # build_source → where the build for item comparison comes from: "pob" (a Path of Building save file) or "clipboard" (a PoB code, kept in build.txt); empty = none.

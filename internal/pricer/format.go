@@ -10,7 +10,7 @@ import (
 )
 
 // Line is the one-line answer the overlay shows, e.g.
-// "~6–9 div · 14 лотов, 3 фиксера" or "~12c · poe.ninja".
+// "~6–9 div · 14 listings, 3 fixers" or "~12c · poe.ninja".
 func (r *Result) Line(divine float64) string {
 	if r.Source == "poe.ninja" {
 		if r.Base > 0 {

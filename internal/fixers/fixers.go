@@ -37,9 +37,9 @@ type Result struct {
 }
 
 const (
-	ReasonDuplicate = "повтор того же лота"
-	ReasonCheapOld  = "дешёвый и давно висит"
-	ReasonOld       = "висит больше недели"
+	ReasonDuplicate = "same listing repeated"
+	ReasonCheapOld  = "cheap and listed long ago"
+	ReasonOld       = "listed over a week ago"
 )
 
 // Clean dedupes by account+signature, then drops lots that are both cheap
