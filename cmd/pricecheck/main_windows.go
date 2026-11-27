@@ -48,7 +48,7 @@ var version = "0.1.17"
 const (
 	className = "exile-price-listener"
 	mutexName = `Local\exile-price`
-	hideDist  = 200 // px the cursor may move away before the line hides
+	hideDist  = 200 // px the cursor may move away before the line starts to hide
 )
 
 func main() {
@@ -597,17 +597,21 @@ func (a *overlay) hide() {
 	}
 }
 
-// watch hides the line on timeout or when the cursor moves away.
+// watch hides the line on timeout, or hideGrace after the cursor moves away.
 func (a *overlay) watch() {
 	for range time.Tick(100 * time.Millisecond) {
+		x, y := win.CursorPos()
 		a.mu.Lock()
-		hideAt, at := a.hideAt, a.shownAt
-		a.mu.Unlock()
-		if hideAt.IsZero() {
+		if a.hideAt.IsZero() {
+			a.mu.Unlock()
 			continue
 		}
-		x, y := win.CursorPos()
-		if time.Now().After(hideAt) || math.Hypot(float64(x-at[0]), float64(y-at[1])) > hideDist {
+		at := a.shownAt
+		away := math.Hypot(float64(x-at[0]), float64(y-at[1])) > hideDist
+		var hide bool
+		a.hideAt, hide = nextHide(a.hideAt, time.Now(), away)
+		a.mu.Unlock()
+		if hide {
 			a.hide()
 		}
 	}

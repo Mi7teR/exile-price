@@ -116,3 +116,30 @@ func TestLoadReadsBuildKeys(t *testing.T) {
 		t.Errorf("edited load = %+v", cfg)
 	}
 }
+
+func TestLoadRaisesOldDefaultHideAfter(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	old := Default()
+	old.HideAfter = 5 * time.Second // the default before 30 s, saved by an older version
+	if err := Save(dir, old); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HideAfter != 30*time.Second {
+		t.Errorf("hide_after = %v, want 30s", cfg.HideAfter)
+	}
+	again, err := Load(dir) // written back: a 5 s set later by hand stays
+	if err != nil || again.HideAfter != 30*time.Second {
+		t.Errorf("not saved: %v, %v", again.HideAfter, err)
+	}
+	if err := os.WriteFile(path, []byte("hide_after = \"8s\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _ := Load(dir); cfg.HideAfter != 8*time.Second {
+		t.Errorf("own value changed: %v", cfg.HideAfter)
+	}
+}

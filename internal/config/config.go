@@ -40,7 +40,7 @@ type Fixers struct {
 
 func Default() Config {
 	return Config{
-		HideAfter: 5 * time.Second,
+		HideAfter: 30 * time.Second,
 		RollSlack: 0.15,
 		Fixers:    Fixers{CheapRatio: 0.5, StaleAge: 24 * time.Hour, MinReferenceChaos: 10},
 	}
@@ -81,6 +81,9 @@ func appDir(base string) (string, error) {
 	return dir, os.MkdirAll(dir, 0o755)
 }
 
+// oldHideAfter is the hide_after default before it became 30 s.
+const oldHideAfter = 5 * time.Second
+
 // Load reads dir/config.toml over the defaults, writing the file when absent.
 func Load(dir string) (Config, error) {
 	cfg := Default()
@@ -94,6 +97,12 @@ func Load(dir string) (Config, error) {
 	}
 	if _, err := toml.Decode(string(b), &cfg); err != nil {
 		return Default(), fmt.Errorf("%s: %w", path, err)
+	}
+	if cfg.HideAfter == oldHideAfter {
+		// The default before 30 s, written by an older version: raise it
+		// once and save, so a 5 s set by hand later stays.
+		cfg.HideAfter = Default().HideAfter
+		return cfg, Save(dir, cfg)
 	}
 	return cfg, nil
 }
