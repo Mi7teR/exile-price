@@ -124,6 +124,7 @@ type overlay struct {
 		p    *pricer.Pricer
 		text string
 		line string
+		lang i18n.Lang // the line is in this language
 		at   time.Time
 	}
 
@@ -212,11 +213,11 @@ func (a *overlay) run() {
 		TrayTip:   "exile-price " + version,
 		TrayClick: a.openSettings,
 		TrayMenu: []win.MenuItem{
-			{Label: i18n.T("Open the last search (Ctrl+Alt+O)"), Do: a.openSearch},
-			{Label: i18n.T("Load build from clipboard"), Do: func() { go a.loadClipboardBuild() }},
-			{Label: i18n.T("Settings…"), Do: a.openSettings},
-			{Label: i18n.T("Open log"), Do: func() { win.OpenFile(a.logPath) }},
-			{Label: i18n.T("Quit"), Do: func() { slog.Info("stop: tray"); a.quit() }},
+			{Label: "Open the last search (Ctrl+Alt+O)", Do: a.openSearch},
+			{Label: "Load build from clipboard", Do: func() { go a.loadClipboardBuild() }},
+			{Label: "Settings…", Do: a.openSettings},
+			{Label: "Open log", Do: func() { win.OpenFile(a.logPath) }},
+			{Label: "Quit", Do: func() { slog.Info("stop: tray"); a.quit() }},
 		},
 	})
 	if err != nil {
@@ -304,7 +305,7 @@ func (a *overlay) price(text string) {
 	n := a.newLine()
 	gear := build.Equippable(text) // no build change for currency, gems, maps, jewels
 	hideAfter := a.config().HideAfter
-	if a.last.p == p && a.last.text == text && time.Since(a.last.at) < time.Minute {
+	if a.last.p == p && a.last.text == text && a.last.lang == i18n.Current() && time.Since(a.last.at) < time.Minute {
 		a.put(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
 		if gear {
 			a.restoreSub(n, text) // until the compare below: the build may have been saved in PoB
@@ -343,7 +344,7 @@ func (a *overlay) price(text string) {
 	default:
 		line := r.Line(p.Divine())
 		a.put(line, ui.Price, hideAfter)
-		a.last.p, a.last.text, a.last.line, a.last.at = p, text, line, time.Now()
+		a.last.p, a.last.text, a.last.line, a.last.lang, a.last.at = p, text, line, i18n.Current(), time.Now()
 		if r.Link != "" {
 			a.link.Store(&r.Link)
 		}

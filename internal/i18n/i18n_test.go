@@ -29,3 +29,18 @@ func TestT(t *testing.T) {
 		t.Error("Parse")
 	}
 }
+
+func TestSetWhileReading(t *testing.T) { // run with -race: the settings switch the language live
+	defer Set(EN)
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 100; i++ {
+			Set(Lang(i % 2))
+		}
+		close(done)
+	}()
+	for i := 0; i < 100; i++ {
+		_ = T("Save") + Count(i, "listing")
+	}
+	<-done
+}

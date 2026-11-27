@@ -130,3 +130,16 @@ func TestSettingsBuildRelistsOnSubmit(t *testing.T) {
 		t.Errorf("relisted the same folder: %v", dirs)
 	}
 }
+
+func TestSettingsLanguage(t *testing.T) {
+	if got := NewSettings(leagues, "Covens", Auto, "").Language(); got != "en" {
+		t.Errorf("default = %q, want en", got)
+	}
+	s := NewSettings(leagues, "Covens", Auto, "").WithLanguage("ru")
+	if got := s.Language(); got != "ru" {
+		t.Errorf("got %q, want ru", got)
+	}
+	if got := NewSettings(leagues, "Covens", Auto, "").WithLanguage("de").Language(); got != "en" {
+		t.Errorf("unknown code: got %q, want en", got)
+	}
+}

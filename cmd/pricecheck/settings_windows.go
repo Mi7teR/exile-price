@@ -43,7 +43,8 @@ func (a *overlay) openSettings() {
 	}
 	_, err := os.Stat(filepath.Join(a.dir, "build.txt"))
 	form := ui.NewSettings(p.Leagues, pricer.AutoLeague(p.Leagues), cfg.League, cfg.POESESSID).
-		WithBuilds(ui.BuildChoice{Dir: dir, Source: cfg.BuildSource, Path: cfg.PoBBuild}, err == nil, buildEntries)
+		WithBuilds(ui.BuildChoice{Dir: dir, Source: cfg.BuildSource, Path: cfg.PoBBuild}, err == nil, buildEntries).
+		WithLanguage(cfg.Language)
 	w := new(app.Window)
 	w.Option(app.Title(i18n.T("exile-price — settings")), app.Size(unit.Dp(460), unit.Dp(760)))
 	var ops op.Ops
@@ -56,7 +57,7 @@ func (a *overlay) openSettings() {
 			switch act {
 			case ui.Saved:
 				league, sess := form.Values()
-				go a.applySettings(league, sess, form.Build())
+				go a.applySettings(form.Language(), league, sess, form.Build())
 				w.Perform(system.ActionClose)
 			case ui.Cancelled:
 				w.Perform(system.ActionClose)
@@ -67,37 +68,44 @@ func (a *overlay) openSettings() {
 	}
 }
 
-// applySettings saves the league, POESESSID and build choice. Prices are
-// reloaded only when the league or POESESSID changed; a new build is just
-// loaded.
-func (a *overlay) applySettings(league, sess string, c ui.BuildChoice) {
+// applySettings saves the language, league, POESESSID and build choice.
+// The language applies at once; prices are reloaded only when the league or
+// POESESSID changed; a new build is just loaded.
+func (a *overlay) applySettings(lang, league, sess string, c ui.BuildChoice) {
 	def := build.DefaultPoBDir()
 	a.cfgMu.Lock()
 	old := a.cfg
 	a.cfg = withBuild(a.cfg, c, def)
-	a.cfg.League, a.cfg.POESESSID = league, sess
+	a.cfg.Language, a.cfg.League, a.cfg.POESESSID = lang, league, sess
 	cfg := a.cfg
 	prices := old.League != league || old.POESESSID != sess
 	newBuild := old.BuildSource != cfg.BuildSource || old.PoBBuild != cfg.PoBBuild
+	newLang := i18n.Parse(old.Language) != i18n.Parse(lang)
 	var err error
-	if prices || newBuild || old.PoBDir != cfg.PoBDir {
+	if prices || newBuild || newLang || old.PoBDir != cfg.PoBDir {
 		err = config.Save(a.dir, cfg) // under cfgMu: a later save never writes an older config
 	}
 	a.cfgMu.Unlock()
-	if !prices && !newBuild && old.PoBDir == cfg.PoBDir {
+	if !prices && !newBuild && !newLang && old.PoBDir == cfg.PoBDir {
 		return
+	}
+	if newLang {
+		i18n.Set(i18n.Parse(lang))
 	}
 	if err != nil {
 		slog.Error("settings save", "err", err)
 		a.show(i18n.Tf("cannot save config.toml: %s", err), ui.Error, 8*time.Second)
 		return
 	}
-	slog.Info("settings saved", "league", league, "poesessid_set", sess != "", // never the session itself
+	slog.Info("settings saved", "language", lang, "league", league, "poesessid_set", sess != "", // never the session itself
 		"build_source", cfg.BuildSource, "pob_build", cfg.PoBBuild, "pob_dir", cfg.PoBDir)
 	if newBuild {
 		a.useBuild(cfg)
 	}
 	if !prices {
+		if newLang && !newBuild {
+			a.show(i18n.T("settings saved"), ui.Info, 3*time.Second)
+		}
 		return
 	}
 	a.show(i18n.T("settings saved · loading prices…"), ui.Pending, time.Minute)

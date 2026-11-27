@@ -32,6 +32,7 @@ type Settings struct {
 	leagues []string
 	auto    string // what Auto resolves to now, shown next to it
 
+	lang         widget.Enum
 	league       widget.Enum
 	sess         widget.Editor
 	show         widget.Bool
@@ -146,6 +147,7 @@ const autoKey = "\x00auto"
 // league id; auto is the league Auto picks today.
 func NewSettings(leagues []string, auto, league, poesessid string) *Settings {
 	s := &Settings{th: material.NewTheme(), leagues: leagues, auto: auto}
+	s.lang.Value = "en"
 	s.league.Value = autoKey
 	if league != Auto {
 		s.league.Value = league
@@ -160,6 +162,18 @@ func NewSettings(leagues []string, auto, league, poesessid string) *Settings {
 	s.list.Axis = layout.Vertical
 	return s
 }
+
+// WithLanguage sets the language choice: "ru" or "en"; anything else is "en".
+func (s *Settings) WithLanguage(code string) *Settings {
+	s.lang.Value = "en"
+	if i18n.Parse(code) == i18n.RU {
+		s.lang.Value = "ru"
+	}
+	return s
+}
+
+// Language is the chosen language code, "en" or "ru".
+func (s *Settings) Language() string { return s.lang.Value }
 
 // Values is what the form holds now: the league (Auto or an id) and the
 // trimmed POESESSID.
@@ -200,6 +214,7 @@ var (
 
 // Layout draws the form and reports Saved or Cancelled once a button is pressed.
 func (s *Settings) Layout(gtx layout.Context) Action {
+	s.lang.Update(gtx)
 	s.league.Update(gtx)
 	s.build.Update(gtx)
 	if s.listBuilds != nil {
@@ -234,7 +249,14 @@ func (s *Settings) Layout(gtx layout.Context) Action {
 		l.Font.Weight = font.Bold
 		return l.Layout
 	}
-	rows := []layout.Widget{heading(i18n.T("League"))}
+	rows := []layout.Widget{
+		heading(i18n.T("Language")),
+		// Each name in its own language: findable whatever the current one is.
+		material.RadioButton(th, &s.lang, "en", "English").Layout,
+		material.RadioButton(th, &s.lang, "ru", "Русский").Layout,
+		gap,
+		heading(i18n.T("League")),
+	}
 	autoLabel := i18n.T("Auto: the current temporary softcore league")
 	if s.auto != "" {
 		autoLabel += i18n.Tf(" (now %s)", s.auto)

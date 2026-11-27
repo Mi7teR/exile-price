@@ -29,6 +29,8 @@ var ru = map[string]string{
 	"config.toml has an error, using defaults · log: %s":                        "config.toml с ошибкой, взяты значения по умолчанию · лог: %s",
 	"new listing":                             "новый лот",
 	"cannot listen to the clipboard: %s":      "не удалось слушать буфер: %s",
+	"Language":                                "Язык",
+	"settings saved":                          "настройки сохранены",
 	"pricing…":                                "оцениваю…",
 	"searching trade…":                        "ищу на трейде…",
 	"reading listings…":                       "смотрю лоты…",

@@ -7,6 +7,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/Mi7teR/exile-price/internal/i18n"
 )
 
 var (
@@ -106,7 +108,7 @@ func (l *Listener) onTray(hwnd, lp uintptr) {
 		}
 		menu, _, _ := procCreatePopupMenu.Call()
 		for i, it := range l.ev.TrayMenu {
-			label, _ := windows.UTF16PtrFromString(it.Label)
+			label, _ := windows.UTF16PtrFromString(i18n.T(it.Label))
 			procAppendMenu.Call(menu, 0, uintptr(i+1), uintptr(unsafe.Pointer(label)))
 		}
 		x, y := CursorPos()

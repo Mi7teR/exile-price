@@ -72,7 +72,7 @@ type Events struct {
 }
 
 type MenuItem struct {
-	Label string
+	Label string // in English; shown translated, in the language of the moment
 	Do    func()
 }
 
