@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/fs"
 	"log/slog"
 	"math"
 	"net"
@@ -24,6 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Mi7teR/exile-calc/engine"
+
 	"github.com/Mi7teR/exile-price/internal/i18n"
 	"github.com/Mi7teR/exile-price/internal/logfile"
 
@@ -31,6 +34,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 
+	"github.com/Mi7teR/exile-price/internal/build"
 	"github.com/Mi7teR/exile-price/internal/config"
 	"github.com/Mi7teR/exile-price/internal/notify"
 	"github.com/Mi7teR/exile-price/internal/platform/win"
@@ -111,6 +115,10 @@ type overlay struct {
 
 	notice *notice // "new listing" in the corner, from the browser extension
 
+	store     atomic.Pointer[build.Store] // nil until the engine is ready
+	seq       atomic.Uint64               // one per priced item; a late build change for an older one is dropped
+	buildGone atomic.Bool                 // "build file not found" was shown
+
 	last struct { // the last priced item; a repeat within a minute reuses it
 		p    *pricer.Pricer
 		text string
@@ -125,6 +133,10 @@ type overlay struct {
 	shownAt [2]int32  // cursor where the line was shown
 	hideAt  time.Time // zero = hidden
 	size    image.Point
+	lastSub struct { // the build change of the last compared item, for the repeat
+		text  string
+		spans []ui.Span
+	}
 }
 
 func (a *overlay) config() config.Config {
@@ -200,6 +212,7 @@ func (a *overlay) run() {
 		TrayClick: a.openSettings,
 		TrayMenu: []win.MenuItem{
 			{Label: i18n.T("Open the last search (Ctrl+Alt+O)"), Do: a.openSearch},
+			{Label: i18n.T("Load build from clipboard"), Do: func() { go a.loadClipboardBuild() }},
 			{Label: i18n.T("Settings…"), Do: a.openSettings},
 			{Label: i18n.T("Open log"), Do: func() { win.OpenFile(a.logPath) }},
 			{Label: i18n.T("Quit"), Do: func() { slog.Info("stop: tray"); a.quit() }},
@@ -215,6 +228,9 @@ func (a *overlay) run() {
 	go a.watch()
 	go a.notice.serve(a.statText)
 
+	buildErr := make(chan error, 1)
+	go func() { buildErr <- a.loadBuild() }() // alongside the prices
+
 	a.show(i18n.Tf("exile-price %s · loading prices…", version), ui.Pending, time.Minute)
 	for !a.load() {
 		a.show(i18n.T("no connection to the trade site or poe.ninja, retrying in 30 s"), ui.Error, 30*time.Second)
@@ -226,6 +242,17 @@ func (a *overlay) run() {
 		hello = i18n.Tf("config.toml has an error, using defaults · log: %s", a.logPath)
 	}
 	a.show(hello, ui.Info, 8*time.Second)
+	go func() {
+		err := <-buildErr
+		if err == nil {
+			return
+		}
+		seq := a.seq.Load()
+		time.Sleep(8 * time.Second)
+		if a.seq.Load() == seq { // no item was priced meanwhile: the line is still ours
+			a.show(buildErrText(err), ui.Error, 8*time.Second)
+		}
+	}()
 
 	go a.background()
 	for text := range a.items {
@@ -270,13 +297,22 @@ func (a *overlay) price(text string) {
 	if p == nil {
 		return
 	}
+	a.mu.Lock()
+	n := a.seq.Add(1)
+	a.view.SetSub(nil)
+	cachedSub := a.lastSub
+	a.mu.Unlock()
 	hideAfter := a.config().HideAfter
 	if a.last.p == p && a.last.text == text && time.Since(a.last.at) < time.Minute {
+		if cachedSub.text == text {
+			a.view.SetSub(cachedSub.spans)
+		}
 		a.show(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
 		slog.Info("price cached", "line", a.last.line)
 		return
 	}
 	a.show(i18n.T("pricing…"), ui.Pending, 20*time.Second)
+	go a.compare(n, text) // after show: the line is up when the change arrives
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	t0 := time.Now()
@@ -308,6 +344,128 @@ func (a *overlay) price(text string) {
 		}
 		slog.Info("price", append(attrs, "text", text)...)
 	}
+}
+
+// loadBuild starts the engine and loads the build chosen in the config.
+func (a *overlay) loadBuild() error {
+	calc, err := engine.New()
+	if err != nil {
+		slog.Error("build engine", "err", err)
+		return err
+	}
+	s := build.NewStore(a.dir, calc)
+	a.store.Store(s)
+	cfg := a.config()
+	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
+	logBuild(cfg.BuildSource, b, err)
+	a.buildGone.Store(errors.Is(err, fs.ErrNotExist)) // said once, after the greeting
+	return err
+}
+
+// logBuild logs a build load: class and level only, never the code.
+func logBuild(source string, b *build.Build, err error) {
+	switch {
+	case err != nil:
+		slog.Error("build load", "source", source, "err", err)
+	case b == nil:
+		slog.Info("build: none", "source", source)
+	default:
+		slog.Info("build loaded", "source", source, "class", b.Class, "level", b.Level)
+	}
+}
+
+// compare puts the build change under the line of item n, unless a newer
+// item came or the line was hidden meanwhile.
+func (a *overlay) compare(n uint64, text string) {
+	s := a.store.Load()
+	if s == nil {
+		return
+	}
+	b, err := s.Current()
+	if err != nil {
+		slog.Warn("build", "err", err)
+		if errors.Is(err, fs.ErrNotExist) && a.buildGone.CompareAndSwap(false, true) {
+			a.putSub(n, "", []ui.Span{{Text: i18n.T("build file not found"), Kind: ui.Worse}})
+		}
+	} else {
+		a.buildGone.Store(false)
+	}
+	if b == nil {
+		return
+	}
+	t0 := time.Now()
+	d, err := b.Compare(text)
+	switch {
+	case errors.Is(err, build.ErrNoSlot):
+		slog.Info("build: no slot")
+		return
+	case err != nil:
+		slog.Warn("build compare", "err", err)
+		return
+	}
+	shown := a.putSub(n, text, subSpans(d.Segments()))
+	slog.Info("build change", "line", d.String(), "took", time.Since(t0), "shown", shown, "missing", d.Missing)
+}
+
+// putSub sets the second line if item n is still the current one and its
+// line is up; a hidden line is not shown again. A non-empty text also
+// keeps the spans for a repeat of that item.
+func (a *overlay) putSub(n uint64, text string, spans []ui.Span) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.seq.Load() != n {
+		return false
+	}
+	if text != "" {
+		a.lastSub.text, a.lastSub.spans = text, spans
+	}
+	if a.hideAt.IsZero() {
+		return false
+	}
+	a.view.SetSub(spans)
+	a.win.Invalidate()
+	return true
+}
+
+// loadClipboardBuild loads a PoB code from the clipboard (tray menu) and
+// makes the clipboard the build source.
+func (a *overlay) loadClipboardBuild() {
+	s := a.store.Load()
+	if s == nil {
+		slog.Warn("build: engine not ready")
+		return
+	}
+	text, err := win.ReadClipboard()
+	if err != nil {
+		slog.Warn("build clipboard", "err", err)
+		a.show(i18n.T("no PoB code on the clipboard"), ui.Error, 6*time.Second)
+		return
+	}
+	b, err := s.SaveClipboard(text)
+	if err != nil {
+		slog.Warn("build clipboard", "len", len(text), "err", err)
+		a.show(clipboardErrText(text, err), ui.Error, 8*time.Second)
+		return
+	}
+	slog.Info("build loaded", "source", config.SourceClipboard, "class", b.Class, "level", b.Level, "len", len(text))
+	a.forgetSub()
+	a.cfgMu.Lock()
+	a.cfg.BuildSource = config.SourceClipboard
+	cfg := a.cfg
+	a.cfgMu.Unlock()
+	if err := config.Save(a.dir, cfg); err != nil {
+		slog.Error("settings save", "err", err)
+		a.show(i18n.Tf("cannot save config.toml: %s", err), ui.Error, 8*time.Second)
+		return
+	}
+	a.show(i18n.Tf("build loaded: %s", b.Summary()), ui.Info, 6*time.Second)
+}
+
+// forgetSub drops the kept build change: the build is another one now.
+func (a *overlay) forgetSub() {
+	a.mu.Lock()
+	a.lastSub.text, a.lastSub.spans = "", nil
+	a.mu.Unlock()
 }
 
 // openSearch opens the last trade search in the browser, to see the

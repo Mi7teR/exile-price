@@ -3,7 +3,11 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/Mi7teR/exile-price/internal/i18n"
@@ -13,6 +17,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 
+	"github.com/Mi7teR/exile-price/internal/build"
 	"github.com/Mi7teR/exile-price/internal/config"
 	"github.com/Mi7teR/exile-price/internal/pricer"
 	"github.com/Mi7teR/exile-price/internal/ui"
@@ -32,9 +37,15 @@ func (a *overlay) openSettings() {
 	defer a.settingsOpen.Store(false)
 
 	cfg := a.config()
-	form := ui.NewSettings(p.Leagues, pricer.AutoLeague(p.Leagues), cfg.League, cfg.POESESSID)
+	dir := cfg.PoBDir
+	if dir == "" {
+		dir = build.DefaultPoBDir()
+	}
+	_, err := os.Stat(filepath.Join(a.dir, "build.txt"))
+	form := ui.NewSettings(p.Leagues, pricer.AutoLeague(p.Leagues), cfg.League, cfg.POESESSID).
+		WithBuilds(ui.BuildChoice{Dir: dir, Source: cfg.BuildSource, Path: cfg.PoBBuild}, err == nil, buildEntries)
 	w := new(app.Window)
-	w.Option(app.Title(i18n.T("exile-price — settings")), app.Size(unit.Dp(460), unit.Dp(640)))
+	w.Option(app.Title(i18n.T("exile-price — settings")), app.Size(unit.Dp(460), unit.Dp(760)))
 	var ops op.Ops
 	for {
 		switch e := w.Event().(type) {
@@ -45,7 +56,7 @@ func (a *overlay) openSettings() {
 			switch act {
 			case ui.Saved:
 				league, sess := form.Values()
-				go a.applySettings(league, sess)
+				go a.applySettings(league, sess, form.Build())
 				w.Perform(system.ActionClose)
 			case ui.Cancelled:
 				w.Perform(system.ActionClose)
@@ -56,14 +67,20 @@ func (a *overlay) openSettings() {
 	}
 }
 
-// applySettings saves the league and POESESSID and reloads prices with them.
-func (a *overlay) applySettings(league, sess string) {
+// applySettings saves the league, POESESSID and build choice. Prices are
+// reloaded only when the league or POESESSID changed; a new build is just
+// loaded.
+func (a *overlay) applySettings(league, sess string, c ui.BuildChoice) {
+	def := build.DefaultPoBDir()
 	a.cfgMu.Lock()
-	changed := a.cfg.League != league || a.cfg.POESESSID != sess
+	old := a.cfg
+	a.cfg = withBuild(a.cfg, c, def)
 	a.cfg.League, a.cfg.POESESSID = league, sess
 	cfg := a.cfg
 	a.cfgMu.Unlock()
-	if !changed {
+	prices := old.League != league || old.POESESSID != sess
+	newBuild := old.BuildSource != cfg.BuildSource || old.PoBBuild != cfg.PoBBuild
+	if !prices && !newBuild && old.PoBDir == cfg.PoBDir {
 		return
 	}
 	if err := config.Save(a.dir, cfg); err != nil {
@@ -71,11 +88,36 @@ func (a *overlay) applySettings(league, sess string) {
 		a.show(i18n.Tf("cannot save config.toml: %s", err), ui.Error, 8*time.Second)
 		return
 	}
-	slog.Info("settings saved", "league", league, "poesessid_set", sess != "") // never the session itself
+	slog.Info("settings saved", "league", league, "poesessid_set", sess != "", // never the session itself
+		"build_source", cfg.BuildSource, "pob_build", cfg.PoBBuild, "pob_dir", cfg.PoBDir)
+	if newBuild {
+		a.useBuild(cfg)
+	}
+	if !prices {
+		return
+	}
 	a.show(i18n.T("settings saved · loading prices…"), ui.Pending, time.Minute)
 	if !a.load() {
 		a.show(i18n.T("prices did not load, the old ones stay; see the log"), ui.Error, 8*time.Second)
 		return
 	}
 	a.show(i18n.Tf("done · league %s", a.pricer.Load().League), ui.Info, 4*time.Second)
+}
+
+// useBuild switches to the build chosen in the settings and says so.
+func (a *overlay) useBuild(cfg config.Config) {
+	s := a.store.Load()
+	if s == nil {
+		return // the engine is still starting; it loads the config's build itself
+	}
+	a.forgetSub()
+	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
+	logBuild(cfg.BuildSource, b, err)
+	a.buildGone.Store(errors.Is(err, fs.ErrNotExist)) // the line below says it
+	switch {
+	case err != nil:
+		a.show(buildErrText(err), ui.Error, 8*time.Second)
+	case b != nil:
+		a.show(i18n.Tf("build loaded: %s", b.Summary()), ui.Info, 6*time.Second)
+	}
 }
