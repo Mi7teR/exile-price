@@ -44,6 +44,7 @@ type Settings struct {
 	builds     []BuildEntry
 	pinned     *BuildEntry // the configured file, shown even if the folder lacks it
 	lastDir    string
+	dirFocused bool
 	hasClip    bool
 	listBuilds func(dir string) []BuildEntry
 }
@@ -60,10 +61,12 @@ const (
 )
 
 // WithBuilds adds the PoB build section on the current choice. list returns
-// the builds in a folder and is called again when the folder text changes.
+// the builds in a folder; it is called again when the folder text was
+// changed and then submitted with Enter or left.
 func (s *Settings) WithBuilds(c BuildChoice, hasClipboard bool, list func(dir string) []BuildEntry) *Settings {
 	s.hasClip, s.listBuilds = hasClipboard, list
 	s.dir.SingleLine = true
+	s.dir.Submit = true
 	s.dir.SetText(c.Dir)
 	s.build.Value = noBuildKey
 	switch {
@@ -104,6 +107,29 @@ func (s *Settings) relist() {
 			}
 		}
 		s.builds = append([]BuildEntry{*s.pinned}, s.builds...)
+	}
+}
+
+// updateDir lists the folder again once its text is done: on Enter or when
+// the field loses focus, not per keystroke (a typed "C:\" would walk the drive).
+func (s *Settings) updateDir(gtx layout.Context) {
+	done := false
+	for {
+		ev, ok := s.dir.Update(gtx)
+		if !ok {
+			break
+		}
+		if _, ok := ev.(widget.SubmitEvent); ok {
+			done = true
+		}
+	}
+	focused := gtx.Focused(&s.dir)
+	if s.dirFocused && !focused {
+		done = true
+	}
+	s.dirFocused = focused
+	if done && strings.TrimSpace(s.dir.Text()) != s.lastDir {
+		s.relist()
 	}
 }
 
@@ -176,8 +202,8 @@ var (
 func (s *Settings) Layout(gtx layout.Context) Action {
 	s.league.Update(gtx)
 	s.build.Update(gtx)
-	if s.listBuilds != nil && strings.TrimSpace(s.dir.Text()) != s.lastDir {
-		s.relist()
+	if s.listBuilds != nil {
+		s.updateDir(gtx)
 	}
 	if s.show.Update(gtx) {
 		s.sess.Mask = '•'

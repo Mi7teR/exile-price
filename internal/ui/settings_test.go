@@ -4,6 +4,8 @@ import (
 	"image"
 	"testing"
 
+	"gioui.org/io/input"
+	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -76,12 +78,55 @@ func TestSettingsBuildRelistsOnDirEdit(t *testing.T) {
 	var dirs []string
 	list := func(dir string) []BuildEntry { dirs = append(dirs, dir); return nil }
 	s := NewSettings(leagues, "Covens", Auto, "").WithBuilds(BuildChoice{Dir: "D"}, false, list)
+	var r input.Router
 	var ops op.Ops
-	gtx := layout.Context{Ops: &ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Constraints: layout.Exact(image.Pt(460, 760))}
-	s.Layout(gtx)
-	s.dir.SetText("E")
-	s.Layout(gtx)
+	frame := func() {
+		ops.Reset()
+		gtx := layout.Context{Ops: &ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+			Constraints: layout.Exact(image.Pt(460, 760)), Source: r.Source()}
+		s.Layout(gtx)
+		r.Frame(&ops)
+	}
+	frame()
+	r.Source().Execute(key.FocusCmd{Tag: &s.dir})
+	frame()
+	s.dir.SetText("E") // typing: no walk of the folder per keystroke
+	frame()
+	if len(dirs) != 1 {
+		t.Fatalf("listed while typing: %v", dirs)
+	}
+	r.Source().Execute(key.FocusCmd{}) // the folder field loses focus
+	frame()
+	frame()
 	if len(dirs) != 2 || dirs[0] != "D" || dirs[1] != "E" {
 		t.Errorf("list calls: %v", dirs)
+	}
+}
+
+func TestSettingsBuildRelistsOnSubmit(t *testing.T) {
+	var dirs []string
+	list := func(dir string) []BuildEntry { dirs = append(dirs, dir); return nil }
+	s := NewSettings(leagues, "Covens", Auto, "").WithBuilds(BuildChoice{Dir: "D"}, false, list)
+	var r input.Router
+	var ops op.Ops
+	frame := func() {
+		ops.Reset()
+		gtx := layout.Context{Ops: &ops, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+			Constraints: layout.Exact(image.Pt(460, 760)), Source: r.Source()}
+		s.Layout(gtx)
+		r.Frame(&ops)
+	}
+	frame()
+	r.Source().Execute(key.FocusCmd{Tag: &s.dir})
+	frame()
+	s.dir.SetText("E")
+	r.Queue(key.Event{Name: key.NameReturn, State: key.Press})
+	frame()
+	if len(dirs) != 2 || dirs[1] != "E" {
+		t.Errorf("list calls: %v", dirs)
+	}
+	frame() // unchanged text: no second walk
+	if len(dirs) != 2 {
+		t.Errorf("relisted the same folder: %v", dirs)
 	}
 }
