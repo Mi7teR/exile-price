@@ -20,15 +20,15 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 **Compare with your build (optional):** under the price, exile-price shows how your Path of Building build changes if you equip the item.
 
 1. Save your build in Path of Building (Ctrl+S).
-2. Tray icon → "Settings…" → the "PoB build" section: pick the build (the PoB builds folder is found by itself; for a portable PoB, point it at its `Builds` folder) → "Save".
-3. In the game, press **Ctrl+Alt+C** on a ring, armour piece, belt, amulet or weapon. A second line appears under the price, e.g. `instead of Ring 2: DPS +3.1% · Life +68 · Fire +12% · EHP +4%`: green is better, red is worse.
+2. Tray icon → "Settings…" → the "PoB build" section: pick the build (the PoB builds folder is found by itself; for a portable PoB, type its `Builds` folder and press Enter) → "Save". "do not compare" turns the second line off; "code from the clipboard (build.txt)" is the build loaded from a PoB code (step 5).
+3. In the game, press **Ctrl+Alt+C** on a ring, amulet, belt, armour piece, shield, quiver or weapon. A second line appears under the price, e.g. `instead of Ring 2: DPS +3.1% · Life +68 · Fire +12% · EHP +4%`: green is better, red is worse. When the best slot is empty in the build, the line starts with `into empty <slot>:`.
 4. Changed the build in PoB and saved? The next Ctrl+Alt+C picks it up.
 5. A build that is not in your PoB (pobb.in, a friend): copy its PoB code, then tray icon → "Load build from clipboard".
 
 Notes:
-- The item is compared against the build's active item set and active weapon set. A ring or a one-handed weapon is tried in both slots and the better result is shown (more DPS, then more EHP). Jewels, flasks and tinctures are not compared.
+- The item is compared against the build's active item set and active weapon set. A ring is tried in every ring slot the build has, a one-handed weapon in both weapon slots, and the best result is shown: the bigger DPS gain in %, then the bigger EHP gain. Jewels, flasks and tinctures are not compared.
 - DPS is Full DPS when the build has skills in Full DPS, otherwise the main skill's DPS. Resistances are capped values.
-- "not all counted" means the engine did not understand some of the item's mods.
+- "not all counted" means the engine did not fully understand some of the item's mods, so the change may be incomplete.
 - Timeless jewels are not applied without PoB's timeless data; the build is still computed.
 - No network request is made for the build.
 - A pasted code is kept in `build.txt`. The settings are the `build_source` ("pob" or "clipboard"), `pob_build` and `pob_dir` keys in `config.toml`.
