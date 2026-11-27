@@ -94,3 +94,25 @@ func TestAppDirKeepsExistingFolder(t *testing.T) {
 		t.Fatalf("old folder must stay when the new one exists: %v", err)
 	}
 }
+
+func TestLoadReadsBuildKeys(t *testing.T) {
+	dir := t.TempDir()
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BuildSource != "" || cfg.PoBBuild != "" || cfg.PoBDir != "" {
+		t.Fatalf("defaults = %+v", cfg)
+	}
+	edited := "build_source = \"pob\"\npob_build = 'C:\\x\\a.xml'\npob_dir = 'C:\\x'\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(edited), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BuildSource != SourcePoB || cfg.PoBBuild != `C:\x\a.xml` || cfg.PoBDir != `C:\x` {
+		t.Errorf("edited load = %+v", cfg)
+	}
+}

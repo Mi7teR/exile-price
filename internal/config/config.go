@@ -20,7 +20,17 @@ type Config struct {
 	HideAfter time.Duration `toml:"hide_after"` // the answer line hides after this
 	RollSlack float64       `toml:"roll_slack"` // rare filters: min = roll × (1 − roll_slack)
 	Fixers    Fixers        `toml:"fixers"`
+
+	BuildSource string `toml:"build_source"` // "pob", "clipboard" or empty = no build
+	PoBBuild    string `toml:"pob_build"`    // the PoB build file used when build_source = "pob"
+	PoBDir      string `toml:"pob_dir"`      // the PoB builds folder the file picker opens in
 }
+
+// Values of Config.BuildSource.
+const (
+	SourcePoB       = "pob"
+	SourceClipboard = "clipboard"
+)
 
 type Fixers struct {
 	CheapRatio        float64       `toml:"cheap_ratio"`
@@ -39,6 +49,9 @@ func Default() Config {
 const header = `# exile-price settings. Delete a line to get its default back.
 # league = ""  → current temporary softcore league; set e.g. "Hardcore Covens" to override.
 # poesessid    → optional, the POESESSID cookie of pathofexile.com; keep this file private.
+# build_source → where the build for item comparison comes from: "pob" (a Path of Building save file) or "clipboard" (a PoB code, kept in build.txt); empty = none.
+# pob_build    → the Path of Building build file (.xml) read when build_source = "pob".
+# pob_dir      → the Path of Building builds folder the file picker starts in.
 `
 
 // Dir is the app folder; it is created if missing.
