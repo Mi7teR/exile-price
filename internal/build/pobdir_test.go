@@ -68,3 +68,25 @@ func TestListBuildsMissingDir(t *testing.T) {
 		t.Errorf("got %+v", got)
 	}
 }
+
+func TestDefaultDirFrom(t *testing.T) {
+	if got := defaultDirFrom(""); got != "" {
+		t.Errorf("empty userPath: got %q", got)
+	}
+	u := t.TempDir()
+	if got := defaultDirFrom(u); got != "" {
+		t.Errorf("no Builds: got %q", got)
+	}
+	builds := filepath.Join(u, "Builds")
+	if err := os.Mkdir(builds, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(u, "gone")
+	xml := `<PathOfBuilding><Misc buildPath="` + missing + `"/></PathOfBuilding>`
+	if err := os.WriteFile(filepath.Join(u, "Settings.xml"), []byte(xml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := defaultDirFrom(u); got != builds {
+		t.Errorf("fallback: got %q, want %q", got, builds)
+	}
+}

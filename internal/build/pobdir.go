@@ -18,12 +18,18 @@ type Entry struct {
 }
 
 // DefaultPoBDir returns PoB's builds folder, or "" if it does not exist.
-func DefaultPoBDir() string {
-	dir := buildsDir(pobUserPath())
-	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+func DefaultPoBDir() string { return defaultDirFrom(pobUserPath()) }
+
+func defaultDirFrom(userPath string) string {
+	if userPath == "" {
 		return ""
 	}
-	return dir
+	for _, dir := range []string{buildsDir(userPath), filepath.Join(userPath, "Builds")} {
+		if st, err := os.Stat(dir); err == nil && st.IsDir() {
+			return dir
+		}
+	}
+	return ""
 }
 
 // buildsDir returns <Misc buildPath> from userPath/Settings.xml, or userPath/Builds.
