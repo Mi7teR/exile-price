@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	gioui.org v0.10.3
 	github.com/BurntSushi/toml v1.6.0
-	github.com/Mi7teR/exile-calc v0.1.0
+	github.com/Mi7teR/exile-calc v0.1.1
 	golang.org/x/sys v0.50.0
 )
 
