@@ -1,4 +1,4 @@
-# poe-pricecheck
+# exile-price
 
 Fast native price check for Path of Exile 1: copy an item in the game, a price line appears at the cursor. Go, no Electron.
 
