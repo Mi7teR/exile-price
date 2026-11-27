@@ -1,8 +1,10 @@
 package build
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -88,5 +90,39 @@ func TestDefaultDirFrom(t *testing.T) {
 	}
 	if got := defaultDirFrom(u); got != builds {
 		t.Errorf("fallback: got %q, want %q", got, builds)
+	}
+}
+
+func TestListBuildsDepthCap(t *testing.T) {
+	d := t.TempDir()
+	put := func(levels int) {
+		p := d
+		for i := range levels {
+			p = filepath.Join(p, fmt.Sprintf("d%d", i))
+		}
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(p, fmt.Sprintf("at%d.xml", levels)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put(maxListDepth)
+	put(maxListDepth + 1)
+	got := ListBuilds(d)
+	if len(got) != 1 || !strings.HasSuffix(got[0].Name, fmt.Sprintf("at%d", maxListDepth)) {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestListBuildsCountCap(t *testing.T) {
+	d := t.TempDir()
+	for i := range maxListEntries + 5 {
+		if err := os.WriteFile(filepath.Join(d, fmt.Sprintf("b%04d.xml", i)), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := ListBuilds(d); len(got) != maxListEntries {
+		t.Fatalf("got %d entries", len(got))
 	}
 }

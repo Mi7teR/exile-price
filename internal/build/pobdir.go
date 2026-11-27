@@ -50,14 +50,17 @@ func buildsDir(userPath string) string {
 	return s.Misc.BuildPath
 }
 
-// ListBuilds returns all *.xml files under dir recursively, newest first.
+// Limits of ListBuilds: a folder such as C:\ must not walk the whole drive.
+const (
+	maxListEntries = 1000
+	maxListDepth   = 6 // folders below dir; deeper ones are skipped
+)
+
+// ListBuilds returns the *.xml files under dir recursively, newest first:
+// at most maxListEntries of them, from folders at most maxListDepth deep.
 func ListBuilds(dir string) []Entry {
 	var out []Entry
 	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.EqualFold(filepath.Ext(p), ".xml") {
-			return nil
-		}
-		info, err := d.Info()
 		if err != nil {
 			return nil
 		}
@@ -66,7 +69,23 @@ func ListBuilds(dir string) []Entry {
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if rel != "." && strings.Count(rel, "/")+1 > maxListDepth {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !strings.EqualFold(filepath.Ext(p), ".xml") {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
 		out = append(out, Entry{Name: rel[:len(rel)-len(".xml")], Path: p, Mod: info.ModTime()})
+		if len(out) >= maxListEntries {
+			return fs.SkipAll
+		}
 		return nil
 	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Mod.After(out[j].Mod) })

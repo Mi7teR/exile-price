@@ -105,3 +105,28 @@ func TestSegmentsPartial(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestSegmentsEmptySlot(t *testing.T) {
+	d := &Delta{Slots: []string{"Ring 2"}, Empty: true,
+		Change: map[string]float64{"Life": 40}}
+	setLang(t, i18n.EN)
+	if got, want := d.String(), "into empty Ring 2: Life +40"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	setLang(t, i18n.RU)
+	if got, want := d.String(), "в пустой Ring 2: Life +40"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestSegmentsHalfRoundsToZero(t *testing.T) {
+	setLang(t, i18n.EN)
+	for _, v := range []float64{0.5, -0.5} {
+		d := &Delta{Slots: []string{"Ring 2"},
+			Before: map[string]float64{"TotalEHP": 1000},
+			Change: map[string]float64{"Life": v, "FireResist": v, "TotalEHP": v / 2}}
+		if got, want := d.String(), "instead of Ring 2: no change"; got != want {
+			t.Errorf("%v: got %q, want %q", v, got, want)
+		}
+	}
+}

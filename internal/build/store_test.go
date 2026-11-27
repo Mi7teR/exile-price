@@ -128,3 +128,17 @@ func TestStoreNone(t *testing.T) {
 		t.Fatalf("Current = %v, %v", b, err)
 	}
 }
+
+func TestStoreClipboardRenameFailRemovesTmp(t *testing.T) {
+	dir := t.TempDir()
+	// build.txt is a folder with a file in it: the rename onto it fails.
+	if err := os.MkdirAll(filepath.Join(dir, "build.txt", "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(dir, calc).SaveClipboard(string(read(t, "builds", "assassin.code"))); err == nil {
+		t.Fatal("want error")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "build.txt.tmp")); !os.IsNotExist(err) {
+		t.Fatalf("tmp left behind: %v", err)
+	}
+}

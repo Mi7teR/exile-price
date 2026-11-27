@@ -55,6 +55,7 @@ var ru = map[string]string{
 
 	// build comparison
 	"instead of %s: ":               "вместо %s: ",
+	"into empty %s: ":               "в пустой %s: ",
 	"no change":                     "без изменений",
 	" · not all counted":            " · не всё учтено",
 	"Load build from clipboard":     "Загрузить билд из буфера",

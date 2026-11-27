@@ -8,6 +8,9 @@ import (
 	"testing"
 
 	"github.com/Mi7teR/exile-calc/engine"
+	"github.com/Mi7teR/exile-calc/pobcode"
+
+	"github.com/Mi7teR/exile-price/internal/i18n"
 )
 
 var calc *engine.Calculator
@@ -65,6 +68,9 @@ func TestCompareRingPicksBetterSlot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if d.Empty {
+		t.Error("Ring 2 holds an item, Empty set")
+	}
 	if !reflect.DeepEqual(d.Slots, []string{"Ring 2"}) {
 		t.Fatalf("slots %v", d.Slots)
 	}
@@ -121,5 +127,42 @@ func TestCompareSwapBuildUsesSwapSlots(t *testing.T) {
 	}
 	if len(d.Change) == 0 {
 		t.Fatal("empty change")
+	}
+}
+
+func TestCompareIntoEmptySlot(t *testing.T) {
+	pb, err := pobcode.FromCode(string(read(t, "builds", "assassin.code")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := pb.ActiveItems()
+	cleared := false
+	for i := range set.Slots {
+		if set.Slots[i].Name == "Ring 2" {
+			set.Slots[i].ItemID = 0
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatal("no Ring 2 slot in the fixture")
+	}
+	code, err := pb.Code()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Load(calc, []byte(code))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := b.Compare(string(read(t, "items", "real_ring_rare_crafted.txt")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.Empty || !reflect.DeepEqual(d.Slots, []string{"Ring 2"}) {
+		t.Fatalf("empty %v, slots %v", d.Empty, d.Slots)
+	}
+	setLang(t, i18n.EN)
+	if got := d.Segments()[0].Text; got != "into empty Ring 2: " {
+		t.Fatalf("prefix %q", got)
 	}
 }

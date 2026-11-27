@@ -26,7 +26,8 @@ type Build struct {
 
 // Delta is the change a build gets from equipping an item.
 type Delta struct {
-	Slots          []string // slots the item replaces
+	Slots          []string // slots the item replaces, or the empty slot it goes to
+	Empty          bool     // the slot was empty: nothing is replaced
 	Before, Change map[string]float64
 	Partial        bool     // Unparsed or Incomplete are not empty
 	Missing        []string // the Unparsed and Incomplete lines, for the log
@@ -96,6 +97,7 @@ func shortNum(v float64) string {
 // Compare equips the item into each candidate slot and returns the better outcome.
 func (b *Build) Compare(itemText string) (*Delta, error) {
 	var best *engine.ItemComparison
+	var bestSlot string
 	for _, slot := range slotsFor(itemClass(itemText), b.swap) {
 		c, err := b.cmp.Item(slot, itemText)
 		if errors.Is(err, engine.ErrItemNotValidForSlot) || errors.Is(err, engine.ErrSlotNotAvailable) {
@@ -105,7 +107,7 @@ func (b *Build) Compare(itemText string) (*Delta, error) {
 			return nil, fmt.Errorf("build: slot %s: %w", slot, err)
 		}
 		if best == nil || better(c, best) {
-			best = c
+			best, bestSlot = c, slot
 		}
 	}
 	if best == nil {
@@ -113,9 +115,13 @@ func (b *Build) Compare(itemText string) (*Delta, error) {
 	}
 	d := &Delta{
 		Slots:   best.Replaced,
+		Empty:   len(best.Replaced) == 0,
 		Before:  best.Before,
 		Change:  best.Delta,
 		Partial: len(best.Unparsed)+len(best.Incomplete) > 0,
+	}
+	if d.Empty {
+		d.Slots = []string{bestSlot}
 	}
 	d.Missing = append(append(d.Missing, best.Unparsed...), best.Incomplete...)
 	return d, nil

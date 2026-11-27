@@ -124,6 +124,7 @@ func (s *Store) SaveClipboard(text string) (*Build, error) {
 		return nil, err
 	}
 	if err := os.Rename(tmp, s.buildTxt()); err != nil {
+		_ = os.Remove(tmp)
 		return nil, err
 	}
 	s.source, s.path, s.cur, s.stamp, s.bad, s.badErr = config.SourceClipboard, "", b, stamp{}, stamp{}, nil

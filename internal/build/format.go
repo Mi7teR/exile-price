@@ -2,7 +2,6 @@ package build
 
 import (
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/Mi7teR/exile-price/internal/i18n"
@@ -27,6 +26,9 @@ type Segment struct {
 // and a trailing note when not everything was counted.
 func (d *Delta) Segments() []Segment {
 	prefix := i18n.Tf("instead of %s: ", strings.Join(d.Slots, " + "))
+	if d.Empty {
+		prefix = i18n.Tf("into empty %s: ", strings.Join(d.Slots, " + "))
+	}
 	segs := []Segment{{Text: prefix}}
 
 	type stat struct {
@@ -48,21 +50,15 @@ func (d *Delta) Segments() []Segment {
 	first := true
 	for _, s := range stats {
 		c := d.Change[s.key]
-		var text string
-		var v float64
+		v, num, suffix := c, fmt.Sprintf("%+.0f", c), s.suffix
 		if s.pct && d.Before[s.key] > 0 {
 			v = c / d.Before[s.key] * 100
-			if math.Round(v*10) == 0 {
-				continue
-			}
-			text = fmt.Sprintf("%s %+.1f%%", s.label, v)
-		} else {
-			v = c
-			if math.Round(v) == 0 {
-				continue
-			}
-			text = fmt.Sprintf("%s %+.0f%s", s.label, v, s.suffix)
+			num, suffix = fmt.Sprintf("%+.1f", v), "%"
 		}
+		if isZero(num) { // decided on the printed number: %+.0f of 0.5 is "+0"
+			continue
+		}
+		text := s.label + " " + num + suffix
 		tone := Better
 		if v < 0 {
 			tone = Worse
@@ -80,6 +76,11 @@ func (d *Delta) Segments() []Segment {
 		segs = append(segs, Segment{Text: i18n.T(" · not all counted")})
 	}
 	return segs
+}
+
+// isZero reports whether a formatted number such as "+0", "-0.0" is zero.
+func isZero(num string) bool {
+	return strings.Trim(num, "+-0.") == ""
 }
 
 // String is the delta line as plain text, for the log and CLI.
