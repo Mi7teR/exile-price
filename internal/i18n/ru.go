@@ -52,4 +52,9 @@ var ru = map[string]string{
 	"Cancel":           "Отмена",
 	"Save":             "Сохранить",
 	"POESESSID is 32 characters 0–9 and a–f": "POESESSID — это 32 символа 0–9 и a–f",
+
+	// build comparison
+	"instead of %s: ":    "вместо %s: ",
+	"no change":          "без изменений",
+	" · not all counted": " · не всё учтено",
 }
