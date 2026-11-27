@@ -34,7 +34,7 @@ func (a *overlay) openSettings() {
 	cfg := a.config()
 	form := ui.NewSettings(p.Leagues, pricer.AutoLeague(p.Leagues), cfg.League, cfg.POESESSID)
 	w := new(app.Window)
-	w.Option(app.Title(i18n.T("poe-pricecheck — settings")), app.Size(unit.Dp(460), unit.Dp(640)))
+	w.Option(app.Title(i18n.T("exile-price — settings")), app.Size(unit.Dp(460), unit.Dp(640)))
 	var ops op.Ops
 	for {
 		switch e := w.Event().(type) {

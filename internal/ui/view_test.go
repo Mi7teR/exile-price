@@ -23,7 +23,7 @@ func size(v *View, text string) image.Point {
 func TestLayoutSizesToText(t *testing.T) {
 	v := New()
 	short := size(v, "~4.0c · poe.ninja")
-	long := size(v, "poe-pricecheck 0.1.0 · лига Covens · Ctrl+Alt+C на предмете · лог: C:\\Users\\tester\\AppData\\Roaming\\poe-pricecheck\\pricecheck.log")
+	long := size(v, "exile-price 0.1.0 · лига Covens · Ctrl+Alt+C на предмете · лог: C:\\Users\\tester\\AppData\\Roaming\\exile-price\\pricecheck.log")
 	if short.X <= 0 || short.Y <= 0 {
 		t.Fatalf("short = %v", short)
 	}

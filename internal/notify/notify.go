@@ -62,7 +62,7 @@ func FocusURL(tab int) string {
 // FocusPage answers FocusURL.
 func FocusPage(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	io.WriteString(w, `<!doctype html><title>poe-pricecheck</title><p>poe-pricecheck: the browser extension did not pick this up. Is it installed in this browser?</p>`)
+	io.WriteString(w, `<!doctype html><title>exile-price</title><p>exile-price: the browser extension did not pick this up. Is it installed in this browser?</p>`)
 }
 
 // StatText gives the trade site's text for a stat id, with # for the

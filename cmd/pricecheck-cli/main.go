@@ -53,7 +53,7 @@ func run(league string, verbose bool, file string) error {
 	}
 	opts := pricer.Options{
 		HTTP:      &http.Client{Timeout: 15 * time.Second},
-		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/exile-price)",
+		UserAgent: "exile-price/" + version + " (github.com/Mi7teR/exile-price)",
 		CacheDir:  filepath.Join(dir, "cache"),
 		POESESSID: cmp.Or(os.Getenv("POESESSID"), cfg.POESESSID),
 		Config:    cfg,

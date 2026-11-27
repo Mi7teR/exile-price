@@ -23,10 +23,10 @@ var ru = map[string]string{
 	"the trade league list has no temporary softcore league; set league in config.toml": "в списке трейд-лиг нет временной софткор-лиги; задайте league в config.toml",
 
 	// overlay
-	"poe-pricecheck %s · loading prices…":                                          "poe-pricecheck %s · загрузка цен…",
-	"no connection to the trade site or poe.ninja, retrying in 30 s":               "нет связи с трейдом или poe.ninja, повтор через 30 с",
-	"poe-pricecheck %s · league %s · Ctrl+Alt+C on an item · settings in the tray": "poe-pricecheck %s · лига %s · Ctrl+Alt+C на предмете · настройки в трее",
-	"config.toml has an error, using defaults · log: %s":                           "config.toml с ошибкой, взяты значения по умолчанию · лог: %s",
+	"exile-price %s · loading prices…":                                          "exile-price %s · загрузка цен…",
+	"no connection to the trade site or poe.ninja, retrying in 30 s":            "нет связи с трейдом или poe.ninja, повтор через 30 с",
+	"exile-price %s · league %s · Ctrl+Alt+C on an item · settings in the tray": "exile-price %s · лига %s · Ctrl+Alt+C на предмете · настройки в трее",
+	"config.toml has an error, using defaults · log: %s":                        "config.toml с ошибкой, взяты значения по умолчанию · лог: %s",
 	"new listing":                             "новый лот",
 	"cannot listen to the clipboard: %s":      "не удалось слушать буфер: %s",
 	"pricing…":                                "оцениваю…",
@@ -36,7 +36,7 @@ var ru = map[string]string{
 	"Open log":                                "Открыть лог",
 	"Quit":                                    "Выход",
 	"settings open once prices are loaded":    "настройки откроются после загрузки цен",
-	"poe-pricecheck — settings":               "poe-pricecheck — настройки",
+	"exile-price — settings":                  "exile-price — настройки",
 	"cannot save config.toml: %s":             "не удалось сохранить config.toml: %s",
 	"settings saved · loading prices…":        "настройки сохранены · загрузка цен…",
 	"prices did not load, the old ones stay; see the log": "цены не загрузились, остались прежние; подробности в логе",

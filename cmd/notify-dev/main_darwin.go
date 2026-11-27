@@ -41,7 +41,7 @@ func main() {
 	}
 
 	w := new(app.Window)
-	w.Option(app.Title("poe-pricecheck live"), app.Size(unit.Dp(380), unit.Dp(40)), app.TopMost(true))
+	w.Option(app.Title("exile-price live"), app.Size(unit.Dp(380), unit.Dp(40)), app.TopMost(true))
 	cards := ui.NewCards("новый лот")
 	var mu sync.Mutex
 	browsers := map[int]string{} // tab → .app bundle

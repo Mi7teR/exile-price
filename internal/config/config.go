@@ -1,4 +1,4 @@
-// Package config reads config.toml from the app folder (%APPDATA%\poe-pricecheck
+// Package config reads config.toml from the app folder (%APPDATA%\exile-price
 // on Windows) and writes the defaults there on first run.
 package config
 
@@ -36,7 +36,7 @@ func Default() Config {
 	}
 }
 
-const header = `# poe-pricecheck settings. Delete a line to get its default back.
+const header = `# exile-price settings. Delete a line to get its default back.
 # league = ""  → current temporary softcore league; set e.g. "Hardcore Covens" to override.
 # poesessid    → optional, the POESESSID cookie of pathofexile.com; keep this file private.
 `
@@ -47,7 +47,24 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(base, "poe-pricecheck")
+	return appDir(base)
+}
+
+// appDir returns base/exile-price. The app was called poe-pricecheck before;
+// on the first run after the rename its folder (settings, log, cache) is moved
+// over, unless the new folder already exists. If the move fails (the old
+// exe still runs and holds its log open), the old folder is used this time
+// and the move is tried again on the next run.
+func appDir(base string) (string, error) {
+	dir := filepath.Join(base, "exile-price")
+	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
+		legacy := filepath.Join(base, "poe-pricecheck")
+		if fi, err := os.Stat(legacy); err == nil && fi.IsDir() {
+			if os.Rename(legacy, dir) != nil {
+				return legacy, nil
+			}
+		}
+	}
 	return dir, os.MkdirAll(dir, 0o755)
 }
 

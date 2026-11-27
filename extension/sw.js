@@ -1,5 +1,5 @@
 // When a trade live search tab gets a new listing (its title counter goes
-// up, or it plays its sound), tell poe-pricecheck on this computer which
+// up, or it plays its sound), tell exile-price on this computer which
 // search it was. Nothing is sent to the trade site: the tab's URL, title and
 // the search field's text are all we read.
 importScripts("count.js");
@@ -47,7 +47,7 @@ async function notice(tabId, url) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ label: label || "", url, tab: tabId }),
     });
-  } catch (e) {} // poe-pricecheck is not running
+  } catch (e) {} // exile-price is not running
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {

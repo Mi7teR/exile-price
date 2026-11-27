@@ -42,8 +42,8 @@ import (
 var version = "0.1.17"
 
 const (
-	className = "poe-pricecheck-listener"
-	mutexName = `Local\poe-pricecheck`
+	className = "exile-price-listener"
+	mutexName = `Local\exile-price`
 	hideDist  = 200 // px the cursor may move away before the line hides
 )
 
@@ -67,7 +67,7 @@ func main() {
 	a := &overlay{before: before, view: ui.New(), cfg: cfg, cfgErr: cfgErr, logPath: logPath, dir: dir, items: make(chan string, 1)}
 	a.win = new(app.Window)
 	a.win.Option(
-		app.Title("poe-pricecheck"),
+		app.Title("exile-price"),
 		app.Decorated(false),
 		app.TopMost(true),
 		app.Size(unit.Dp(420), unit.Dp(36)),
@@ -80,7 +80,7 @@ func main() {
 	}()
 	a.notice = &notice{cards: ui.NewCards(i18n.T("new listing")), win: new(app.Window)}
 	a.notice.win.Option(
-		app.Title("poe-pricecheck live"),
+		app.Title("exile-price live"),
 		app.Decorated(false),
 		app.TopMost(true),
 		app.Size(unit.Dp(380), unit.Dp(60)),
@@ -137,7 +137,7 @@ func (a *overlay) options() pricer.Options {
 	cfg := a.config()
 	return pricer.Options{
 		HTTP:      httpClient,
-		UserAgent: "poe-pricecheck/" + version + " (github.com/Mi7teR/exile-price)",
+		UserAgent: "exile-price/" + version + " (github.com/Mi7teR/exile-price)",
 		CacheDir:  filepath.Join(a.dir, "cache"),
 		POESESSID: cfg.POESESSID,
 		Config:    cfg,
@@ -196,7 +196,7 @@ func (a *overlay) run() {
 		Escape:    a.hide,
 		Open:      a.openSearch,
 		Close:     func() { slog.Info("stop: asked by a second launch"); os.Exit(0) },
-		TrayTip:   "poe-pricecheck " + version,
+		TrayTip:   "exile-price " + version,
 		TrayClick: a.openSettings,
 		TrayMenu: []win.MenuItem{
 			{Label: i18n.T("Open the last search (Ctrl+Alt+O)"), Do: a.openSearch},
@@ -215,13 +215,13 @@ func (a *overlay) run() {
 	go a.watch()
 	go a.notice.serve(a.statText)
 
-	a.show(i18n.Tf("poe-pricecheck %s · loading prices…", version), ui.Pending, time.Minute)
+	a.show(i18n.Tf("exile-price %s · loading prices…", version), ui.Pending, time.Minute)
 	for !a.load() {
 		a.show(i18n.T("no connection to the trade site or poe.ninja, retrying in 30 s"), ui.Error, 30*time.Second)
 		time.Sleep(30 * time.Second)
 	}
 	p := a.pricer.Load()
-	hello := i18n.Tf("poe-pricecheck %s · league %s · Ctrl+Alt+C on an item · settings in the tray", version, p.League)
+	hello := i18n.Tf("exile-price %s · league %s · Ctrl+Alt+C on an item · settings in the tray", version, p.League)
 	if a.cfgErr != nil {
 		hello = i18n.Tf("config.toml has an error, using defaults · log: %s", a.logPath)
 	}
