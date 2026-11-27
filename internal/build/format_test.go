@@ -130,3 +130,16 @@ func TestSegmentsHalfRoundsToZero(t *testing.T) {
 		}
 	}
 }
+
+func TestSegmentsEmptySlotEmptiesAnother(t *testing.T) {
+	d := &Delta{Slots: []string{"Weapon 1", "Weapon 2"}, Empty: true,
+		Change: map[string]float64{"Life": 40}}
+	setLang(t, i18n.EN)
+	if got, want := d.String(), "into empty Weapon 1, instead of Weapon 2: Life +40"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	setLang(t, i18n.RU)
+	if got, want := d.String(), "в пустой Weapon 1 вместо Weapon 2: Life +40"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/Mi7teR/exile-calc/engine"
 	"github.com/Mi7teR/exile-calc/pobcode"
@@ -21,13 +22,19 @@ type Build struct {
 
 	cmp  *engine.Comparer
 	swap bool
+
+	// Summary's stats, computed on first use: a reload after a PoB save
+	// needs only the Comparer.
+	calc *engine.Calculator
+	pb   *pobcode.Build
+	once sync.Once
 	base map[string]float64
 }
 
 // Delta is the change a build gets from equipping an item.
 type Delta struct {
-	Slots          []string // slots the item replaces, or the empty slot it goes to
-	Empty          bool     // the slot was empty: nothing is replaced
+	Slots          []string // the slot the item goes to, then other slots it empties
+	Empty          bool     // the slot it goes to was empty
 	Before, Change map[string]float64
 	Partial        bool     // Unparsed or Incomplete are not empty
 	Missing        []string // the Unparsed and Incomplete lines, for the log
@@ -46,15 +53,11 @@ func Load(calc *engine.Calculator, data []byte) (*Build, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build: %w", err)
 	}
-	res, err := calc.Calc(pb)
-	if err != nil {
-		return nil, fmt.Errorf("build: %w", err)
-	}
 	cmp, err := calc.NewComparer(pb)
 	if err != nil {
 		return nil, fmt.Errorf("build: %w", err)
 	}
-	b := &Build{Class: pb.AscendClassName, Level: pb.Level, cmp: cmp, base: res.Stats}
+	b := &Build{Class: pb.AscendClassName, Level: pb.Level, cmp: cmp, calc: calc, pb: pb}
 	if b.Class == "" {
 		b.Class = pb.ClassName
 	}
@@ -74,6 +77,11 @@ func dpsKey(before map[string]float64) string {
 
 // Summary is a one-line description such as "Assassin 98 · DPS 3.16M · Life 4658".
 func (b *Build) Summary() string {
+	b.once.Do(func() {
+		if res, err := b.calc.Calc(b.pb); err == nil {
+			b.base = res.Stats
+		}
+	})
 	parts := []string{fmt.Sprintf("%s %d", b.Class, b.Level)}
 	if dps := b.base[dpsKey(b.base)]; dps > 0 {
 		parts = append(parts, "DPS "+shortNum(dps))
@@ -114,17 +122,34 @@ func (b *Build) Compare(itemText string) (*Delta, error) {
 		return nil, ErrNoSlot
 	}
 	d := &Delta{
-		Slots:   best.Replaced,
-		Empty:   len(best.Replaced) == 0,
 		Before:  best.Before,
 		Change:  best.Delta,
 		Partial: len(best.Unparsed)+len(best.Incomplete) > 0,
 	}
-	if d.Empty {
-		d.Slots = []string{bestSlot}
-	}
+	d.Slots, d.Empty = slotsLabel(bestSlot, best.Replaced)
 	d.Missing = append(append(d.Missing, best.Unparsed...), best.Incomplete...)
 	return d, nil
+}
+
+// slotsLabel puts the slot the item goes to first, then the other slots it
+// empties (a two-hander empties "Weapon 2"); empty says the slot itself held
+// nothing. Replaced names only slots that held an item.
+func slotsLabel(slot string, replaced []string) (slots []string, empty bool) {
+	slots, empty = []string{slot}, true
+	for _, r := range replaced {
+		if r == slot {
+			empty = false
+		} else {
+			slots = append(slots, r)
+		}
+	}
+	return slots, empty
+}
+
+// Equippable reports whether the item can go to some gear slot: rings,
+// amulets, belts, armour, weapons, shields and quivers.
+func Equippable(itemText string) bool {
+	return slotsFor(itemClass(itemText), false) != nil
 }
 
 // better reports whether a beats b: larger relative DPS change, then larger EHP change.

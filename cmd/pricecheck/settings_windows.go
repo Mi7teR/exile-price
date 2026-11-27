@@ -112,13 +112,16 @@ func (a *overlay) applySettings(league, sess string, c ui.BuildChoice) {
 func (a *overlay) useBuild(cfg config.Config) {
 	s := a.store.Load()
 	if s == nil {
-		return // the engine is still starting; it loads the config's build itself
+		a.engineNotReady() // once it starts, it loads the config's build itself
+		return
 	}
 	a.forgetSub()
-	a.buildNote.Store(nil) // the line below says how the new build went
+	a.issue.ok() // the line below says how the new build went
 	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
 	logBuild(cfg.BuildSource, b, err)
-	a.buildGone.Store(errors.Is(err, fs.ErrNotExist)) // the line below says it
+	if err != nil {
+		a.issue.shown(errors.Is(err, fs.ErrNotExist))
+	}
 	switch {
 	case err != nil:
 		a.show(buildErrText(err), ui.Error, 8*time.Second)

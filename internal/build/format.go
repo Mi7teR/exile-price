@@ -26,7 +26,10 @@ type Segment struct {
 // and a trailing note when not everything was counted.
 func (d *Delta) Segments() []Segment {
 	prefix := i18n.Tf("instead of %s: ", strings.Join(d.Slots, " + "))
-	if d.Empty {
+	switch {
+	case d.Empty && len(d.Slots) > 1:
+		prefix = i18n.Tf("into empty %s, instead of %s: ", d.Slots[0], strings.Join(d.Slots[1:], " + "))
+	case d.Empty:
 		prefix = i18n.Tf("into empty %s: ", strings.Join(d.Slots, " + "))
 	}
 	segs := []Segment{{Text: prefix}}

@@ -21,7 +21,7 @@ Fast native price check for Path of Exile 1: copy an item in the game, a price l
 
 1. Save your build in Path of Building (Ctrl+S).
 2. Tray icon → "Settings…" → the "PoB build" section: pick the build (the PoB builds folder is found by itself; for a portable PoB, type its `Builds` folder and press Enter) → "Save". "do not compare" turns the second line off; "code from the clipboard (build.txt)" is the build loaded from a PoB code (step 5).
-3. In the game, press **Ctrl+Alt+C** on a ring, amulet, belt, armour piece, shield, quiver or weapon. A second line appears under the price, e.g. `instead of Ring 2: DPS +3.1% · Life +68 · Fire +12% · EHP +4%`: green is better, red is worse. When the best slot is empty in the build, the line starts with `into empty <slot>:`.
+3. In the game, press **Ctrl+Alt+C** on a ring, amulet, belt, armour piece, shield, quiver or weapon. A second line appears under the price, e.g. `instead of Ring 2: DPS +3.1% · Life +68 · Fire +12% · EHP +4%`: green is better, red is worse. When the best slot is empty in the build, the line starts with `into empty <slot>:` (`into empty Weapon 1, instead of Weapon 2:` when a two-hander also takes the off-hand's place).
 4. Changed the build in PoB and saved? The next Ctrl+Alt+C picks it up.
 5. A build that is not in your PoB (pobb.in, a friend): copy its PoB code, then tray icon → "Load build from clipboard".
 

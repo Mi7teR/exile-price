@@ -166,3 +166,42 @@ func TestCompareIntoEmptySlot(t *testing.T) {
 		t.Fatalf("prefix %q", got)
 	}
 }
+
+func TestSlotsLabel(t *testing.T) {
+	cases := []struct {
+		slot     string
+		replaced []string
+		slots    []string
+		empty    bool
+	}{
+		{"Ring 2", []string{"Ring 2"}, []string{"Ring 2"}, false},
+		{"Ring 3", nil, []string{"Ring 3"}, true},
+		{"Weapon 1", []string{"Weapon 1", "Weapon 2"}, []string{"Weapon 1", "Weapon 2"}, false},
+		// a bow into an empty main hand beside a shield: the label names the main hand first
+		{"Weapon 1", []string{"Weapon 2"}, []string{"Weapon 1", "Weapon 2"}, true},
+	}
+	for _, c := range cases {
+		slots, empty := slotsLabel(c.slot, c.replaced)
+		if !reflect.DeepEqual(slots, c.slots) || empty != c.empty {
+			t.Errorf("slotsLabel(%q, %v) = %v, %v; want %v, %v", c.slot, c.replaced, slots, empty, c.slots, c.empty)
+		}
+	}
+}
+
+func TestEquippable(t *testing.T) {
+	for file, want := range map[string]bool{
+		"real_ring_rare_crafted.txt": true,
+		"boots_rare.txt":             true,
+		"currency_divine.txt":        false,
+		"gem_arc.txt":                false,
+		"real_abyss_jewel.txt":       false,
+	} {
+		text, err := os.ReadFile(filepath.Join("..", "..", "testdata", "items", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := Equippable(string(text)); got != want {
+			t.Errorf("%s: Equippable = %v, want %v", file, got, want)
+		}
+	}
+}

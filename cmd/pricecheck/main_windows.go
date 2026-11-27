@@ -117,9 +117,7 @@ type overlay struct {
 
 	store     atomic.Pointer[build.Store] // nil until the engine is ready
 	seq       atomic.Uint64               // one per line; a late build change for an older line is dropped
-	buildGone atomic.Bool                 // "build file not found" was shown
-	buildNote atomic.Pointer[string]      // a build problem not shown yet
-	buildErr  atomic.Pointer[string]      // the build error last logged; nil while the build loads
+	issue     buildIssue                  // a build problem: shown once, logged once
 	engineErr atomic.Pointer[error]       // the engine failed to start
 
 	last struct { // the last priced item; a repeat within a minute reuses it
@@ -254,9 +252,9 @@ func (a *overlay) run() {
 		if a.seq.Load() != seq {
 			return // a newer line is up; compare puts the note under the next price
 		}
-		if note := a.buildNote.Swap(nil); note != nil {
-			a.show(*note, ui.Error, 8*time.Second)
-			a.buildGone.Store(*note == i18n.T("build file not found"))
+		if note, gone := a.issue.take(); note != "" {
+			a.show(note, ui.Error, 8*time.Second)
+			a.issue.shown(gone)
 		}
 	}()
 
@@ -304,21 +302,24 @@ func (a *overlay) price(text string) {
 		return
 	}
 	n := a.newLine()
-	a.mu.Lock()
-	cachedSub := a.lastSub
-	a.mu.Unlock()
+	gear := build.Equippable(text) // no build change for currency, gems, maps, jewels
 	hideAfter := a.config().HideAfter
 	if a.last.p == p && a.last.text == text && time.Since(a.last.at) < time.Minute {
 		a.put(a.last.line, ui.Price, hideAfter) // a second press must not spend trade searches
-		if cachedSub.text == text {
-			a.putSub(n, "", cachedSub.spans) // until the compare below: the build may have been saved in PoB
+		if gear {
+			a.restoreSub(n, text) // until the compare below: the build may have been saved in PoB
+			go a.compare(n, text)
 		}
-		go a.compare(n, text)
 		slog.Info("price cached", "line", a.last.line)
 		return
 	}
 	a.put(i18n.T("pricing…"), ui.Pending, 20*time.Second)
-	go a.compare(n, text) // after show: the line is up when the change arrives
+	if gear {
+		go a.compare(n, text) // after show: the line is up when the change arrives
+		// The line hides if the mouse moves away while pricing, and the
+		// price brings it back: give it back its build change too.
+		defer a.restoreSub(n, text)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	t0 := time.Now()
@@ -358,8 +359,7 @@ func (a *overlay) loadBuild() error {
 	if err != nil {
 		slog.Error("build engine", "err", err)
 		a.engineErr.Store(&err)
-		note := engineErrText(err) // shown once: after the greeting or under the next price
-		a.buildNote.Store(&note)
+		a.issue.set(engineErrText(err), false) // shown once: after the greeting or under the next price
 		return err
 	}
 	s := build.NewStore(a.dir, calc)
@@ -368,8 +368,7 @@ func (a *overlay) loadBuild() error {
 	b, err := s.Use(cfg.BuildSource, cfg.PoBBuild)
 	logBuild(cfg.BuildSource, b, err)
 	if err != nil {
-		note := buildErrText(err) // shown once: after the greeting or under the next price
-		a.buildNote.Store(&note)
+		a.issue.set(buildErrText(err), errors.Is(err, fs.ErrNotExist)) // shown once: after the greeting or under the next price
 	}
 	return err
 }
@@ -391,27 +390,17 @@ func logBuild(source string, b *build.Build, err error) {
 func (a *overlay) compare(n uint64, text string) {
 	s := a.store.Load()
 	if s == nil {
-		a.putNote(n, false) // the engine failed to start
+		a.putNote(n) // the engine failed to start
 		return
 	}
 	b, err := s.Current()
-	gone := errors.Is(err, fs.ErrNotExist)
 	switch {
 	case err == nil:
-		a.buildGone.Store(false)
-		a.buildNote.Store(nil) // the build loads now
-		a.buildErr.Store(nil)
-	case gone && !a.buildGone.Load():
-		note := i18n.T("build file not found")
-		a.buildNote.Store(&note)
+		a.issue.ok()
+	case a.issue.failed(err):
+		slog.Warn("build", "err", err) // once per broken state, not per press
 	}
-	if err != nil {
-		msg := err.Error()
-		if last := a.buildErr.Swap(&msg); last == nil || *last != msg {
-			slog.Warn("build", "err", err) // once per broken state, not per press
-		}
-	}
-	a.putNote(n, gone)
+	a.putNote(n)
 	if b == nil {
 		return
 	}
@@ -431,15 +420,25 @@ func (a *overlay) compare(n uint64, text string) {
 
 // putNote puts a build problem not shown yet under the line of item n;
 // if that line is gone it waits for the next one.
-func (a *overlay) putNote(n uint64, gone bool) {
-	note := a.buildNote.Swap(nil)
-	if note == nil {
+func (a *overlay) putNote(n uint64) {
+	note, gone := a.issue.take()
+	if note == "" {
 		return
 	}
-	if a.putSub(n, "", []ui.Span{{Text: *note, Kind: ui.Worse}}) {
-		a.buildGone.Store(gone)
+	if a.putSub(n, "", []ui.Span{{Text: note, Kind: ui.Worse}}) {
+		a.issue.shown(gone)
 	} else {
-		a.buildNote.CompareAndSwap(nil, note) // not seen: try again under the next line
+		a.issue.putBack(note, gone) // not seen: try again under the next line
+	}
+}
+
+// restoreSub puts the kept build change of text under the line of item n.
+func (a *overlay) restoreSub(n uint64, text string) {
+	a.mu.Lock()
+	kept := a.lastSub
+	a.mu.Unlock()
+	if kept.text == text {
+		a.putSub(n, "", kept.spans)
 	}
 }
 
@@ -468,12 +467,7 @@ func (a *overlay) putSub(n uint64, text string, spans []ui.Span) bool {
 func (a *overlay) loadClipboardBuild() {
 	s := a.store.Load()
 	if s == nil {
-		msg := i18n.T("the engine is still loading")
-		if err := a.engineErr.Load(); err != nil {
-			msg = engineErrText(*err)
-		}
-		slog.Warn("build: engine not ready", "failed", a.engineErr.Load() != nil)
-		a.show(msg, ui.Error, 6*time.Second)
+		a.engineNotReady()
 		return
 	}
 	text, err := win.ReadClipboard()
@@ -490,7 +484,7 @@ func (a *overlay) loadClipboardBuild() {
 	}
 	slog.Info("build loaded", "source", config.SourceClipboard, "class", b.Class, "level", b.Level, "len", len(text))
 	a.forgetSub()
-	a.buildNote.Store(nil)
+	a.issue.ok()
 	a.cfgMu.Lock()
 	a.cfg.BuildSource = config.SourceClipboard
 	err = config.Save(a.dir, a.cfg) // under cfgMu: a later save never writes an older config
@@ -501,6 +495,16 @@ func (a *overlay) loadClipboardBuild() {
 		return
 	}
 	a.show(i18n.Tf("build loaded: %s", b.Summary()), ui.Info, 6*time.Second)
+}
+
+// engineNotReady says the build engine is still starting or failed to.
+func (a *overlay) engineNotReady() {
+	msg := i18n.T("the engine is still loading")
+	if err := a.engineErr.Load(); err != nil {
+		msg = engineErrText(*err)
+	}
+	slog.Warn("build: engine not ready", "failed", a.engineErr.Load() != nil)
+	a.show(msg, ui.Error, 6*time.Second)
 }
 
 // forgetSub drops the kept build change and any compare still running: the
